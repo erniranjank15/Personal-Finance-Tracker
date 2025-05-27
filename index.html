@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Tracker</title>
+    <link rel="stylesheet" href="style.css">
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Finance Tracker</h1>
+        <form id="transactionForm">
+            <input type="text" placeholder="Description" id="desc" required>
+            <input type="number" placeholder="Amount" id="amount" required>
+        <select id="type">
+            <option value="income">Income</option>
+                <option value="expense">Expense</option>
+        </select>
+           <button type="submit">Add</button> 
+        </form>
+
+        <div class="summary">
+            <p><strong>Income:</strong> $<span id="income">0</span></p>
+            <p><strong>Expense:</strong> $<span id="expense">0</span></p>
+            <p><strong>Balance:</strong> $<span id="balance">0</span></p>
+        </div>
+<ul id="transactionList"></ul>
+
+<canvas id="chart" width="100vw" height="100vh"></canvas>
+    <p id="noDataMessage" style="display:block;">No data yet. Start adding transaction!</p>
+    <button id="clearBtn">Clear All Transaction</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
