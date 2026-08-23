@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Planner - Smart Budget Allocation</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-wallet"></i>
+                </div>
+                <div>
+                    <h1>NK Finance Planner</h1>
+                    <p class="subtitle">50 / 30 / 10 / 10 Budget Rule</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="delete-data-btn" class="btn btn-danger" title="Clear all stored data from LocalStorage">
+                    <i class="fa-solid fa-trash-can"></i> Delete Data
+                </button>
+            </div>
+        </header>
+
+        <!-- Input & Currency Card -->
+        <section class="card input-card">
+            <form id="finance-form" onsubmit="return false;">
+                <div class="form-row">
+                    <div class="input-group">
+                        <label for="income-input">Monthly Income</label>
+                        <div class="input-wrapper">
+                            <span class="currency-symbol" id="current-currency-symbol">$</span>
+                            <input type="number" id="income-input" class="income" placeholder="e.g. 5000" min="0"
+                                step="any" required autocomplete="off">
+                        </div>
+                    </div>
+
+                    <div class="input-group select-group">
+                        <label for="currency-select">Currency</label>
+                        <div class="select-wrapper">
+                            <select id="currency-select" class="currency-select">
+                                <option value="USD" data-symbol="$">USD ($)</option>
+                                <option value="INR" data-symbol="₹">INR (₹)</option>
+                                <option value="EUR" data-symbol="€">EUR (€)</option>
+                                <option value="GBP" data-symbol="£">GBP (£)</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down select-icon"></i>
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="submit" id="cal" class="btn btn-primary">
+                            <i class="fa-solid fa-calculator"></i> Calculate
+                        </button>
+                        <button type="button" id="reset-btn" class="btn btn-secondary" title="Reset current inputs">
+                            <i class="fa-solid fa-rotate-left"></i> Reset
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- Dynamic Results Section -->
+        <section class="results-section hidden" id="results-section">
+            <!-- Total Income Summary Card -->
+            <div class="card summary-banner">
+                <div class="summary-item">
+                    <span class="summary-label">Total Monthly Income</span>
+                    <h2 class="summary-value" id="summary-income">$0.00</h2>
+                </div>
+                <div class="summary-divider"></div>
+                <div class="summary-item">
+                    <span class="summary-label">Total Allocation</span>
+                    <h2 class="summary-value text-accent" id="summary-allocation">100% Allocated</h2>
+                </div>
+            </div>
+
+            <!-- Allocation Progress Bar -->
+            <div class="card progress-card">
+                <div class="progress-header">
+                    <h3>Budget Allocation Overview</h3>
+                    <span class="progress-percentage">100% Budgeted</span>
+                </div>
+                <div class="multi-progress-bar">
+                    <div class="progress-segment seg-needs" id="bar-needs" title="Needs (50%)" style="width: 50%;">
+                    </div>
+                    <div class="progress-segment seg-growth" id="bar-growth" title="Growth (30%)" style="width: 30%;">
+                    </div>
+                    <div class="progress-segment seg-lifestyle" id="bar-lifestyle" title="Lifestyle (10%)"
+                        style="width: 10%;"></div>
+                    <div class="progress-segment seg-protection" id="bar-protection" title="Protection (10%)"
+                        style="width: 10%;"></div>
+                </div>
+                <div class="progress-legend">
+                    <span class="legend-item"><span class="dot seg-needs"></span> Needs (50%)</span>
+                    <span class="legend-item"><span class="dot seg-growth"></span> Growth (30%)</span>
+                    <span class="legend-item"><span class="dot seg-lifestyle"></span> Lifestyle (10%)</span>
+                    <span class="legend-item"><span class="dot seg-protection"></span> Protection (10%)</span>
+                </div>
+            </div>
+
+            <!-- Breakdown Grid -->
+            <div class="breakdown-grid">
+                <!-- Needs Card (50%) -->
+                <div class="card category-card card-needs">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><i class="fa-solid fa-house"></i></div>
+                            <div>
+                                <h3>Needs</h3>
+                                <span class="badge">50% of Income</span>
+                            </div>
+                        </div>
+                        <span class="card-amount needs">$0.00</span>
+                    </div>
+                    <p class="card-desc">Essential expenses like rent, utilities, groceries, and healthcare.</p>
+                </div>
+
+                <!-- Growth Card (30%) -->
+                <div class="card category-card card-growth">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><i class="fa-solid fa-chart-line"></i></div>
+                            <div>
+                                <h3>Growth</h3>
+                                <span class="badge">30% of Income</span>
+                            </div>
+                        </div>
+                        <span class="card-amount growth">$0.00</span>
+                    </div>
+                    <p class="card-desc">Building wealth, personal development, and future security.</p>
+
+                    <div class="sub-items">
+                        <div class="sub-item">
+                            <div class="sub-item-name">
+                                <i class="fa-solid fa-piggy-bank"></i>
+                                <span>Emergency Fund (10%)</span>
+                            </div>
+                            <span class="sub-item-value ef">$0.00</span>
+                        </div>
+                        <div class="sub-item">
+                            <div class="sub-item-name">
+                                <i class="fa-solid fa-seedling"></i>
+                                <span>Investments (10%)</span>
+                            </div>
+                            <span class="sub-item-value in">$0.00</span>
+                        </div>
+                        <div class="sub-item">
+                            <div class="sub-item-name">
+                                <i class="fa-solid fa-graduation-cap"></i>
+                                <span>Learning & Skills (10%)</span>
+                            </div>
+                            <span class="sub-item-value learn">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lifestyle Card (10%) -->
+                <div class="card category-card card-lifestyle">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><i class="fa-solid fa-utensils"></i></div>
+                            <div>
+                                <h3>Lifestyle</h3>
+                                <span class="badge">10% of Income</span>
+                            </div>
+                        </div>
+                        <span class="card-amount ls">$0.00</span>
+                    </div>
+                    <p class="card-desc">Dining out, entertainment, hobbies, and personal enjoyment.</p>
+                </div>
+
+                <!-- Protection Card (10%) -->
+                <div class="card category-card card-protection">
+                    <div class="card-header">
+                        <div class="card-title">
+                            <div class="card-icon"><i class="fa-solid fa-shield-halved"></i></div>
+                            <div>
+                                <h3>Protection</h3>
+                                <span class="badge">10% of Income</span>
+                            </div>
+                        </div>
+                        <span class="card-amount prot">$0.00</span>
+                    </div>
+                    <p class="card-desc">Securing assets and managing debt obligations.</p>
+
+                    <div class="sub-items">
+                        <div class="sub-item">
+                            <div class="sub-item-name">
+                                <i class="fa-solid fa-heart-pulse"></i>
+                                <span>Insurance (5%)</span>
+                            </div>
+                            <span class="sub-item-value ins">$0.00</span>
+                        </div>
+                        <div class="sub-item">
+                            <div class="sub-item-name">
+                                <i class="fa-solid fa-credit-card"></i>
+                                <span>Debt Repayment (5%)</span>
+                            </div>
+                            <span class="sub-item-value debt">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Calculation History Section -->
+        <section class="card history-section" id="history-section">
+            <div class="history-header">
+                <div class="history-title">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <h3>Saved Calculations</h3>
+                </div>
+                <button id="clear-history-btn" class="btn btn-outline-danger btn-sm"
+                    title="Clear saved history records">
+                    <i class="fa-solid fa-broom"></i> Clear History
+                </button>
+            </div>
+
+            <div class="history-list" id="history-list">
+                <p class="empty-history-msg">No saved calculations found in LocalStorage. Enter an income above to get
+                    started!</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Confirmation Modal for Delete Data -->
+    <div class="modal-backdrop hidden" id="delete-modal">
+        <div class="modal">
+            <div class="modal-icon text-danger">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3>Delete Stored Data?</h3>
+            <p>This action will permanently delete all saved income calculations and settings from your browser's
+                <strong>LocalStorage</strong>. This cannot be undone.</p>
+            <div class="modal-actions">
+                <button id="confirm-delete-btn" class="btn btn-danger">Yes, Delete All Data</button>
+                <button id="cancel-delete-btn" class="btn btn-secondary">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
