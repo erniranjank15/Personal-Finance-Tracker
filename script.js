@@ -13,6 +13,26 @@ const deleteDataBtn = document.getElementById("delete-data-btn");
 // Result Displays
 const resultsSection = document.getElementById("results-section");
 const summaryIncome = document.getElementById("summary-income");
+const summaryAllocatedAmount = document.getElementById("summary-allocated-amount");
+const summaryAllocation = document.getElementById("summary-allocation");
+const progressPercentage = document.getElementById("progress-percentage");
+
+// Progress bars & legend percentages
+const barNeeds = document.getElementById("bar-needs");
+const barGrowth = document.getElementById("bar-growth");
+const barLifestyle = document.getElementById("bar-lifestyle");
+const barProtection = document.getElementById("bar-protection");
+
+const legendNeedsPct = document.getElementById("legend-needs-pct");
+const legendGrowthPct = document.getElementById("legend-growth-pct");
+const legendLifestylePct = document.getElementById("legend-lifestyle-pct");
+const legendProtectionPct = document.getElementById("legend-protection-pct");
+
+const badgeNeeds = document.getElementById("badge-needs");
+const badgeGrowth = document.getElementById("badge-growth");
+const badgeLifestyle = document.getElementById("badge-lifestyle");
+const badgeProtection = document.getElementById("badge-protection");
+
 const needsElem = document.querySelector(".needs");
 const growthElem = document.querySelector(".growth");
 const efElem = document.querySelector(".ef");
@@ -22,6 +42,17 @@ const lifestyleElem = document.querySelector(".ls");
 const protElem = document.querySelector(".prot");
 const insElem = document.querySelector(".ins");
 const debtElem = document.querySelector(".debt");
+
+// Fund Transfer Elements
+const transferForm = document.getElementById("transfer-form");
+const transferFromSelect = document.getElementById("transfer-from");
+const transferToSelect = document.getElementById("transfer-to");
+const transferAmountInput = document.getElementById("transfer-amount");
+const transferCurrencySymbol = document.getElementById("transfer-currency-symbol");
+const availableFromBadge = document.getElementById("available-from-badge");
+const availableToBadge = document.getElementById("available-to-badge");
+const resetAllocationsBtn = document.getElementById("reset-allocations-btn");
+const quickChips = document.querySelectorAll(".quick-transfer-buttons .btn-chip");
 
 // History & Modal Elements
 const historySection = document.getElementById("history-section");
@@ -44,6 +75,7 @@ const CURRENCIES = {
 let appState = {
     income: 0,
     currency: "USD",
+    allocations: null, // { needs: 0, growth: 0, lifestyle: 0, protection: 0 }
     history: []
 };
 
@@ -70,9 +102,10 @@ function setupEventListeners() {
         const selectedOption = currencySelect.options[currencySelect.selectedIndex];
         const symbol = selectedOption.getAttribute("data-symbol") || "$";
         currencySymbolSpan.textContent = symbol;
+        if (transferCurrencySymbol) transferCurrencySymbol.textContent = symbol;
 
         if (appState.income > 0) {
-            updateUIResults(appState.income);
+            updateUIResults();
         }
         renderHistory();
         saveStateToLocalStorage();
@@ -82,9 +115,43 @@ function setupEventListeners() {
     resetBtn.addEventListener("click", () => {
         incomeInput.value = "";
         appState.income = 0;
+        appState.allocations = null;
         resultsSection.classList.add("hidden");
         showToast("Form input reset", "info");
+        saveStateToLocalStorage();
     });
+
+    // Transfer Fund Listeners
+    transferFromSelect.addEventListener("change", updateTransferBadges);
+    transferToSelect.addEventListener("change", updateTransferBadges);
+
+    quickChips.forEach(chip => {
+        chip.addEventListener("click", () => {
+            const pct = parseFloat(chip.dataset.pct);
+            const fromCat = transferFromSelect.value;
+            const currentFromAmount = appState.allocations ? (appState.allocations[fromCat] || 0) : 0;
+            const computed = (currentFromAmount * pct);
+            // round to 2 decimal places
+            transferAmountInput.value = Math.max(0, Math.floor(computed * 100) / 100);
+        });
+    });
+
+    if (transferForm) {
+        transferForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            handleFundTransfer();
+        });
+    }
+
+    if (resetAllocationsBtn) {
+        resetAllocationsBtn.addEventListener("click", () => {
+            if (appState.income <= 0) return;
+            initDefaultAllocations(appState.income);
+            updateUIResults();
+            saveStateToLocalStorage();
+            showToast("Reset to standard 50/30/10/10 allocations!", "info");
+        });
+    }
 
     // Delete All Data (Modal Flow)
     deleteDataBtn.addEventListener("click", () => {
@@ -135,6 +202,15 @@ function formatCurrency(amount, currencyCode = appState.currency) {
 }
 
 // --- Calculation Logic ---
+function initDefaultAllocations(income) {
+    appState.allocations = {
+        needs: income * 0.50,
+        growth: income * 0.30,
+        lifestyle: income * 0.10,
+        protection: income * 0.10
+    };
+}
+
 function performCalculation(saveToHistory = false) {
     const rawVal = parseFloat(incomeInput.value);
 
@@ -145,7 +221,8 @@ function performCalculation(saveToHistory = false) {
     }
 
     appState.income = rawVal;
-    updateUIResults(rawVal);
+    initDefaultAllocations(rawVal);
+    updateUIResults();
 
     if (saveToHistory) {
         // Save to History Log
@@ -167,33 +244,148 @@ function performCalculation(saveToHistory = false) {
     renderHistory();
 }
 
-function updateUIResults(incomeVal) {
-    // 50 / 30 / 10 / 10 Breakdown
-    const needs = incomeVal * 0.50;
-    const growth = incomeVal * 0.30;
-    const ef = incomeVal * 0.10;
-    const invest = incomeVal * 0.10;
-    const learn = incomeVal * 0.10;
-    const lifestyle = incomeVal * 0.10;
-    const protection = incomeVal * 0.10;
-    const insurance = incomeVal * 0.05;
-    const debt = incomeVal * 0.05;
+function handleFundTransfer() {
+    if (!appState.income || !appState.allocations) {
+        showToast("Please calculate budget first", "danger");
+        return;
+    }
 
-    // Update Banner
+    const fromCat = transferFromSelect.value;
+    const toCat = transferToSelect.value;
+    const transferAmount = parseFloat(transferAmountInput.value);
+
+    if (fromCat === toCat) {
+        showToast("Please select two different categories to transfer funds", "danger");
+        return;
+    }
+
+    if (isNaN(transferAmount) || transferAmount <= 0) {
+        showToast("Please enter a valid transfer amount greater than 0", "danger");
+        transferAmountInput.focus();
+        return;
+    }
+
+    const availableAmount = appState.allocations[fromCat] || 0;
+    if (transferAmount > availableAmount + 0.0001) {
+        showToast(`Insufficient funds in ${getCategoryName(fromCat)}! Available: ${formatCurrency(availableAmount)}`, "danger");
+        return;
+    }
+
+    // Execute transfer
+    appState.allocations[fromCat] = Math.max(0, appState.allocations[fromCat] - transferAmount);
+    appState.allocations[toCat] = (appState.allocations[toCat] || 0) + transferAmount;
+
+    // Reset transfer input field
+    transferAmountInput.value = "";
+
+    // Update entire UI dynamically
+    updateUIResults();
+    saveStateToLocalStorage();
+
+    showToast(`Successfully moved ${formatCurrency(transferAmount)} from ${getCategoryName(fromCat)} to ${getCategoryName(toCat)}!`, "success");
+}
+
+function getCategoryName(catKey) {
+    const names = {
+        needs: "Needs",
+        growth: "Growth",
+        lifestyle: "Lifestyle",
+        protection: "Protection"
+    };
+    return names[catKey] || catKey;
+}
+
+function updateTransferBadges() {
+    if (!appState.allocations) return;
+    const fromCat = transferFromSelect.value;
+    const toCat = transferToSelect.value;
+
+    const fromAmt = appState.allocations[fromCat] || 0;
+    const toAmt = appState.allocations[toCat] || 0;
+
+    if (availableFromBadge) {
+        availableFromBadge.textContent = `Available: ${formatCurrency(fromAmt)}`;
+    }
+    if (availableToBadge) {
+        availableToBadge.textContent = `Current: ${formatCurrency(toAmt)}`;
+    }
+}
+
+function updateUIResults() {
+    if (!appState.allocations || appState.income <= 0) return;
+
+    const { needs, growth, lifestyle, protection } = appState.allocations;
+    const incomeVal = appState.income;
+    const totalAllocated = needs + growth + lifestyle + protection;
+
+    // Percentages
+    const needsPct = incomeVal > 0 ? (needs / incomeVal) * 100 : 0;
+    const growthPct = incomeVal > 0 ? (growth / incomeVal) * 100 : 0;
+    const lifestylePct = incomeVal > 0 ? (lifestyle / incomeVal) * 100 : 0;
+    const protectionPct = incomeVal > 0 ? (protection / incomeVal) * 100 : 0;
+    const totalPct = incomeVal > 0 ? (totalAllocated / incomeVal) * 100 : 0;
+
+    // Update Top Summary Banner
     summaryIncome.textContent = formatCurrency(incomeVal);
+    if (summaryAllocatedAmount) {
+        summaryAllocatedAmount.textContent = formatCurrency(totalAllocated);
+    }
+    if (summaryAllocation) {
+        summaryAllocation.textContent = `${totalPct.toFixed(1)}% Allocated`;
+    }
 
-    // Update Main Cards
+    // Update Progress Bars (normalize visual segments to 100% of the bar width)
+    const barSum = Math.max(0.0001, needs + growth + lifestyle + protection);
+    if (barNeeds) barNeeds.style.width = `${(needs / barSum) * 100}%`;
+    if (barGrowth) barGrowth.style.width = `${(growth / barSum) * 100}%`;
+    if (barLifestyle) barLifestyle.style.width = `${(lifestyle / barSum) * 100}%`;
+    if (barProtection) barProtection.style.width = `${(protection / barSum) * 100}%`;
+
+    // Tooltips for segments
+    if (barNeeds) barNeeds.title = `Needs: ${formatCurrency(needs)} (${needsPct.toFixed(1)}%)`;
+    if (barGrowth) barGrowth.title = `Growth: ${formatCurrency(growth)} (${growthPct.toFixed(1)}%)`;
+    if (barLifestyle) barLifestyle.title = `Lifestyle: ${formatCurrency(lifestyle)} (${lifestylePct.toFixed(1)}%)`;
+    if (barProtection) barProtection.title = `Protection: ${formatCurrency(protection)} (${protectionPct.toFixed(1)}%)`;
+
+    // Progress percentage label & legend
+    if (progressPercentage) {
+        progressPercentage.textContent = `${totalPct.toFixed(1)}% Budgeted`;
+    }
+    if (legendNeedsPct) legendNeedsPct.textContent = `${needsPct.toFixed(1)}%`;
+    if (legendGrowthPct) legendGrowthPct.textContent = `${growthPct.toFixed(1)}%`;
+    if (legendLifestylePct) legendLifestylePct.textContent = `${lifestylePct.toFixed(1)}%`;
+    if (legendProtectionPct) legendProtectionPct.textContent = `${protectionPct.toFixed(1)}%`;
+
+    // Update Badges on Category Cards
+    if (badgeNeeds) badgeNeeds.textContent = `${needsPct.toFixed(1)}% of Income`;
+    if (badgeGrowth) badgeGrowth.textContent = `${growthPct.toFixed(1)}% of Income`;
+    if (badgeLifestyle) badgeLifestyle.textContent = `${lifestylePct.toFixed(1)}% of Income`;
+    if (badgeProtection) badgeProtection.textContent = `${protectionPct.toFixed(1)}% of Income`;
+
+    // Update Main Cards Amounts
     needsElem.textContent = formatCurrency(needs);
     growthElem.textContent = formatCurrency(growth);
     lifestyleElem.textContent = formatCurrency(lifestyle);
     protElem.textContent = formatCurrency(protection);
 
-    // Update Sub-items
-    efElem.textContent = formatCurrency(ef);
-    investElem.textContent = formatCurrency(invest);
-    learnElem.textContent = formatCurrency(learn);
-    insElem.textContent = formatCurrency(insurance);
-    debtElem.textContent = formatCurrency(debt);
+    // Update Sub-items dynamically based on allocated category pool
+    // Growth sub-items split equally across 3 buckets
+    const growthSub = growth / 3;
+    efElem.textContent = formatCurrency(growthSub);
+    investElem.textContent = formatCurrency(growthSub);
+    learnElem.textContent = formatCurrency(growthSub);
+
+    // Protection sub-items split equally across 2 buckets
+    const protSub = protection / 2;
+    insElem.textContent = formatCurrency(protSub);
+    debtElem.textContent = formatCurrency(protSub);
+
+    // Update Transfer Section UI
+    const currConfig = CURRENCIES[appState.currency] || CURRENCIES.USD;
+    if (transferCurrencySymbol) {
+        transferCurrencySymbol.textContent = currConfig.symbol;
+    }
+    updateTransferBadges();
 
     // Unhide Results Section
     resultsSection.classList.remove("hidden");
@@ -216,6 +408,7 @@ function loadStateFromLocalStorage() {
             appState = {
                 income: parsed.income || 0,
                 currency: parsed.currency || "USD",
+                allocations: parsed.allocations || null,
                 history: Array.isArray(parsed.history) ? parsed.history : []
             };
 
@@ -223,13 +416,18 @@ function loadStateFromLocalStorage() {
             currencySelect.value = appState.currency;
             const selectedOption = currencySelect.options[currencySelect.selectedIndex];
             if (selectedOption) {
-                currencySymbolSpan.textContent = selectedOption.getAttribute("data-symbol") || "$";
+                const sym = selectedOption.getAttribute("data-symbol") || "$";
+                currencySymbolSpan.textContent = sym;
+                if (transferCurrencySymbol) transferCurrencySymbol.textContent = sym;
             }
 
-            // Restore Income if exists
+            // Restore Income & Allocations if exists
             if (appState.income > 0) {
                 incomeInput.value = appState.income;
-                updateUIResults(appState.income);
+                if (!appState.allocations) {
+                    initDefaultAllocations(appState.income);
+                }
+                updateUIResults();
             }
 
             renderHistory();
@@ -249,6 +447,7 @@ function deleteAllLocalStorageData() {
         appState = {
             income: 0,
             currency: "USD",
+            allocations: null,
             history: []
         };
 
@@ -256,6 +455,7 @@ function deleteAllLocalStorageData() {
         incomeInput.value = "";
         currencySelect.value = "USD";
         currencySymbolSpan.textContent = "$";
+        if (transferCurrencySymbol) transferCurrencySymbol.textContent = "$";
         resultsSection.classList.add("hidden");
         renderHistory();
 
@@ -310,7 +510,11 @@ function renderHistory() {
                 currencySelect.value = record.currency;
                 appState.currency = record.currency;
                 const option = currencySelect.options[currencySelect.selectedIndex];
-                if (option) currencySymbolSpan.textContent = option.getAttribute("data-symbol") || "$";
+                if (option) {
+                    const sym = option.getAttribute("data-symbol") || "$";
+                    currencySymbolSpan.textContent = sym;
+                    if (transferCurrencySymbol) transferCurrencySymbol.textContent = sym;
+                }
             }
             performCalculation(false);
             showToast(`Loaded calculation for ${formattedAmt}`, "info");
@@ -347,6 +551,7 @@ function showToast(message, type = "info") {
         setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
+
 
 
 

@@ -17,6 +17,15 @@ A modern, responsive, glassmorphic web application for calculating personal budg
   - **Protection (10%)**:
     - Insurance (5%)
     - Debt Repayment (5%)
+- 🔄 **Fund Transfer / Move Money**:
+  - Reallocate money from any category (Needs, Growth, Lifestyle, Protection) to another.
+  - Quick percentage chips (`25%`, `50%`, `Max`) for quick transfers.
+  - Live available fund badges showing real-time balance per fund.
+  - **"Reset to Default"** button to restore standard 50/30/10/10 distribution anytime.
+- 📈 **Dynamic Live Totals & Percentage Tracking**:
+  - Live dynamic total allocated amount and allocation percentage indicators in the summary banner.
+  - Interactive multi-segment progress bar and legend that reflect transfers dynamically.
+  - Sub-items dynamically re-distribute values based on parent category allocation pools.
 - 📊 **Visual Budget Bar**: Dynamic multi-segment progress bar showing total budget distribution.
 - 💱 **Multi-Currency Support**: Switch seamlessly between **USD ($)**, **INR (₹)**, **EUR (€)**, and **GBP (£)** with automatic currency formatting (`Intl.NumberFormat`).
 - 💾 **LocalStorage Auto-Save**: Automatically saves monthly income, currency choice, and history log to browser storage (`localStorage`).
