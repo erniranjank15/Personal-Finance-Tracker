@@ -43,14 +43,14 @@
 
         <!-- Input & Currency Card -->
         <section class="card input-card">
-            <form id="finance-form" onsubmit="return false;">
+            <form id="finance-form">
                 <div class="form-row">
                     <div class="input-group">
                         <label for="income-input">Monthly Income</label>
                         <div class="input-wrapper">
                             <span class="currency-symbol" id="current-currency-symbol">$</span>
                             <input type="number" id="income-input" class="income" placeholder="e.g. 5000" min="0"
-                                step="any" required autocomplete="off">
+                                step="any" autocomplete="off">
                         </div>
                     </div>
 
@@ -116,10 +116,14 @@
                         style="width: 10%;"></div>
                 </div>
                 <div class="progress-legend">
-                    <span class="legend-item"><span class="dot seg-needs"></span> Needs (<span id="legend-needs-pct">50%</span>)</span>
-                    <span class="legend-item"><span class="dot seg-growth"></span> Growth (<span id="legend-growth-pct">30%</span>)</span>
-                    <span class="legend-item"><span class="dot seg-lifestyle"></span> Lifestyle (<span id="legend-lifestyle-pct">10%</span>)</span>
-                    <span class="legend-item"><span class="dot seg-protection"></span> Protection (<span id="legend-protection-pct">10%</span>)</span>
+                    <span class="legend-item"><span class="dot seg-needs"></span> Needs (<span
+                            id="legend-needs-pct">50%</span>)</span>
+                    <span class="legend-item"><span class="dot seg-growth"></span> Growth (<span
+                            id="legend-growth-pct">30%</span>)</span>
+                    <span class="legend-item"><span class="dot seg-lifestyle"></span> Lifestyle (<span
+                            id="legend-lifestyle-pct">10%</span>)</span>
+                    <span class="legend-item"><span class="dot seg-protection"></span> Protection (<span
+                            id="legend-protection-pct">10%</span>)</span>
                 </div>
             </div>
 
@@ -131,25 +135,37 @@
                             <i class="fa-solid fa-arrow-right-arrow-left"></i>
                         </div>
                         <div>
-                            <h3>Move Funds Between Allocations</h3>
-                            <p class="card-desc">Shift money from one fund category to another with live updated totals.</p>
+                            <h3>Move Funds Between Allocations & Sub-Tabs</h3>
+                            <p class="card-desc">Transfer money between any main category or sub-category with custom
+                                notes.</p>
                         </div>
                     </div>
-                    <button type="button" id="reset-allocations-btn" class="btn btn-secondary btn-sm" title="Reset allocations to default 50/30/10/10 rule">
+                    <button type="button" id="reset-allocations-btn" class="btn btn-secondary btn-sm"
+                        title="Reset allocations to default 50/30/10/10 rule">
                         <i class="fa-solid fa-arrows-rotate"></i> Reset to Default
                     </button>
                 </div>
 
-                <form id="transfer-form" class="transfer-form" onsubmit="return false;">
+                <form id="transfer-form" class="transfer-form">
                     <div class="transfer-grid">
                         <div class="input-group">
-                            <label for="transfer-from"><i class="fa-solid fa-arrow-up-from-bracket"></i> Transfer From</label>
+                            <label for="transfer-from"><i class="fa-solid fa-arrow-up-from-bracket"></i> Transfer
+                                From</label>
                             <div class="select-wrapper">
                                 <select id="transfer-from" class="currency-select">
-                                    <option value="needs">Needs</option>
-                                    <option value="growth">Growth</option>
-                                    <option value="lifestyle">Lifestyle</option>
-                                    <option value="protection">Protection</option>
+                                    <optgroup label="Main Categories">
+                                        <option value="needs">Needs (Essential)</option>
+                                        <option value="lifestyle">Lifestyle</option>
+                                    </optgroup>
+                                    <optgroup label="Growth Sub-Funds">
+                                        <option value="ef">Emergency Fund</option>
+                                        <option value="in">Investments</option>
+                                        <option value="learn">Learning & Skills</option>
+                                    </optgroup>
+                                    <optgroup label="Protection Sub-Funds">
+                                        <option value="ins">Insurance</option>
+                                        <option value="debt">Debt Repayment</option>
+                                    </optgroup>
                                 </select>
                                 <i class="fa-solid fa-chevron-down select-icon"></i>
                             </div>
@@ -161,13 +177,23 @@
                         </div>
 
                         <div class="input-group">
-                            <label for="transfer-to"><i class="fa-solid fa-arrow-down-to-bracket"></i> Transfer To</label>
+                            <label for="transfer-to"><i class="fa-solid fa-arrow-down-to-bracket"></i> Transfer
+                                To</label>
                             <div class="select-wrapper">
                                 <select id="transfer-to" class="currency-select">
-                                    <option value="needs">Needs</option>
-                                    <option value="growth" selected>Growth</option>
-                                    <option value="lifestyle">Lifestyle</option>
-                                    <option value="protection">Protection</option>
+                                    <optgroup label="Main Categories">
+                                        <option value="needs">Needs (Essential)</option>
+                                        <option value="lifestyle">Lifestyle</option>
+                                    </optgroup>
+                                    <optgroup label="Growth Sub-Funds">
+                                        <option value="ef">Emergency Fund</option>
+                                        <option value="in">Investments</option>
+                                        <option value="learn">Learning & Skills</option>
+                                    </optgroup>
+                                    <optgroup label="Protection Sub-Funds">
+                                        <option value="ins" selected>Insurance</option>
+                                        <option value="debt">Debt Repayment</option>
+                                    </optgroup>
                                 </select>
                                 <i class="fa-solid fa-chevron-down select-icon"></i>
                             </div>
@@ -178,7 +204,8 @@
                             <label for="transfer-amount"><i class="fa-solid fa-coins"></i> Amount to Move</label>
                             <div class="input-wrapper">
                                 <span class="currency-symbol" id="transfer-currency-symbol">$</span>
-                                <input type="number" id="transfer-amount" class="income" placeholder="e.g. 100" min="0.01" step="any">
+                                <input type="number" id="transfer-amount" class="income" placeholder="e.g. 100"
+                                    min="0.01" step="any">
                             </div>
                             <div class="quick-transfer-buttons">
                                 <button type="button" class="btn-chip" data-pct="0.25">25%</button>
@@ -187,9 +214,106 @@
                             </div>
                         </div>
 
+                        <div class="input-group note-input-group">
+                            <label for="transfer-note"><i class="fa-solid fa-note-sticky"></i> Transfer Note /
+                                Purpose</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="transfer-note" class="income note-input"
+                                    placeholder="e.g. Moved for medical insurance premium" maxlength="120"
+                                    autocomplete="off">
+                            </div>
+                        </div>
+
                         <div class="transfer-btn-group">
                             <button type="submit" id="transfer-btn" class="btn btn-primary transfer-submit-btn">
                                 <i class="fa-solid fa-paper-plane"></i> Move Money
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Transfer Notes & Audit Log -->
+                <div class="transfer-notes-section" id="transfer-notes-section">
+                    <div class="transfer-notes-header">
+                        <div class="transfer-notes-title">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <h4>Transfer History & Notes</h4>
+                        </div>
+                        <button type="button" id="clear-notes-btn" class="btn btn-outline-danger btn-sm"
+                            title="Clear transfer logs">
+                            <i class="fa-solid fa-trash-can"></i> Clear Log
+                        </button>
+                    </div>
+                    <div class="transfer-log-list" id="transfer-log-list">
+                        <p class="empty-history-msg">No fund transfers recorded yet.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Manual Override & Direct Fund Editor Card -->
+            <div class="card manual-editor-card">
+                <div class="manual-editor-header">
+                    <div class="manual-editor-title">
+                        <div class="manual-editor-icon">
+                            <i class="fa-solid fa-sliders"></i>
+                        </div>
+                        <div>
+                            <h3>Manual Allocation Editor</h3>
+                            <p class="card-desc">Directly set the exact amount in any tab or sub-tab. Totals update
+                                dynamically.</p>
+                        </div>
+                    </div>
+                </div>
+                <form id="manual-form" class="manual-form">
+                    <div class="manual-grid">
+                        <div class="input-group">
+                            <label for="manual-target-select"><i class="fa-solid fa-bullseye"></i> Select Tab /
+                                Sub-Tab</label>
+                            <div class="select-wrapper">
+                                <select id="manual-target-select" class="currency-select">
+                                    <optgroup label="Main Categories">
+                                        <option value="needs">Needs</option>
+                                        <option value="growth">Growth (Total)</option>
+                                        <option value="lifestyle">Lifestyle</option>
+                                        <option value="protection">Protection (Total)</option>
+                                    </optgroup>
+                                    <optgroup label="Growth Sub-Tabs">
+                                        <option value="ef">Emergency Fund</option>
+                                        <option value="in">Investments</option>
+                                        <option value="learn">Learning & Skills</option>
+                                    </optgroup>
+                                    <optgroup label="Protection Sub-Tabs">
+                                        <option value="ins">Insurance</option>
+                                        <option value="debt">Debt Repayment</option>
+                                    </optgroup>
+                                </select>
+                                <i class="fa-solid fa-chevron-down select-icon"></i>
+                            </div>
+                            <span class="category-available-badge" id="manual-current-badge">Current: $0.00</span>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="manual-amount-input"><i class="fa-solid fa-pen-to-square"></i> Set
+                                Amount</label>
+                            <div class="input-wrapper">
+                                <span class="currency-symbol" id="manual-currency-symbol">$</span>
+                                <input type="number" id="manual-amount-input" class="income" placeholder="e.g. 1500"
+                                    min="0" step="any">
+                            </div>
+                        </div>
+
+                        <div class="input-group note-input-group">
+                            <label for="manual-note-input"><i class="fa-solid fa-tag"></i> Reason / Note
+                                (Optional)</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="manual-note-input" class="income note-input"
+                                    placeholder="e.g. Fixed rent increase" maxlength="120" autocomplete="off">
+                            </div>
+                        </div>
+
+                        <div class="manual-btn-group">
+                            <button type="submit" id="manual-set-btn" class="btn btn-primary manual-submit-btn">
+                                <i class="fa-solid fa-check"></i> Set Amount
                             </button>
                         </div>
                     </div>
@@ -329,7 +453,8 @@
             </div>
             <h3>Delete Stored Data?</h3>
             <p>This action will permanently delete all saved income calculations and settings from your browser's
-                <strong>LocalStorage</strong>. This cannot be undone.</p>
+                <strong>LocalStorage</strong>. This cannot be undone.
+            </p>
             <div class="modal-actions">
                 <button id="confirm-delete-btn" class="btn btn-danger">Yes, Delete All Data</button>
                 <button id="cancel-delete-btn" class="btn btn-secondary">Cancel</button>

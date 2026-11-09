@@ -48,11 +48,23 @@ const transferForm = document.getElementById("transfer-form");
 const transferFromSelect = document.getElementById("transfer-from");
 const transferToSelect = document.getElementById("transfer-to");
 const transferAmountInput = document.getElementById("transfer-amount");
+const transferNoteInput = document.getElementById("transfer-note");
 const transferCurrencySymbol = document.getElementById("transfer-currency-symbol");
 const availableFromBadge = document.getElementById("available-from-badge");
 const availableToBadge = document.getElementById("available-to-badge");
 const resetAllocationsBtn = document.getElementById("reset-allocations-btn");
 const quickChips = document.querySelectorAll(".quick-transfer-buttons .btn-chip");
+const transferLogList = document.getElementById("transfer-log-list");
+const clearNotesBtn = document.getElementById("clear-notes-btn");
+
+// Manual Allocation Editor Elements
+const manualForm = document.getElementById("manual-form");
+const manualTargetSelect = document.getElementById("manual-target-select");
+const manualAmountInput = document.getElementById("manual-amount-input");
+const manualNoteInput = document.getElementById("manual-note-input");
+const manualCurrencySymbol = document.getElementById("manual-currency-symbol");
+const manualCurrentBadge = document.getElementById("manual-current-badge");
+const manualSetBtn = document.getElementById("manual-set-btn");
 
 // History & Modal Elements
 const historySection = document.getElementById("history-section");
@@ -75,8 +87,22 @@ const CURRENCIES = {
 let appState = {
     income: 0,
     currency: "USD",
-    allocations: null, // { needs: 0, growth: 0, lifestyle: 0, protection: 0 }
+    allocations: null, // Detailed fund breakdown
+    transferLogs: [],   // Audit logs with notes
     history: []
+};
+
+// --- Item Names & Hierarchy Mapping ---
+const ALLOCATION_NAMES = {
+    needs: "Needs",
+    lifestyle: "Lifestyle",
+    ef: "Emergency Fund",
+    in: "Investments",
+    learn: "Learning & Skills",
+    ins: "Insurance",
+    debt: "Debt Repayment",
+    growth: "Growth (Total)",
+    protection: "Protection (Total)"
 };
 
 // --- Initialization ---
@@ -92,10 +118,6 @@ function setupEventListeners() {
         performCalculation(true);
     });
 
-    calculateBtn.addEventListener("click", () => {
-        performCalculation(true);
-    });
-
     // Currency Switcher
     currencySelect.addEventListener("change", (e) => {
         appState.currency = e.target.value;
@@ -103,11 +125,13 @@ function setupEventListeners() {
         const symbol = selectedOption.getAttribute("data-symbol") || "$";
         currencySymbolSpan.textContent = symbol;
         if (transferCurrencySymbol) transferCurrencySymbol.textContent = symbol;
+        if (manualCurrencySymbol) manualCurrencySymbol.textContent = symbol;
 
         if (appState.income > 0) {
             updateUIResults();
         }
         renderHistory();
+        renderTransferLogs();
         saveStateToLocalStorage();
     });
 
@@ -122,22 +146,29 @@ function setupEventListeners() {
     });
 
     // Transfer Fund Listeners
-    transferFromSelect.addEventListener("change", updateTransferBadges);
-    transferToSelect.addEventListener("change", updateTransferBadges);
+    if (transferFromSelect) transferFromSelect.addEventListener("change", updateTransferBadges);
+    if (transferToSelect) transferToSelect.addEventListener("change", updateTransferBadges);
 
     quickChips.forEach(chip => {
         chip.addEventListener("click", () => {
             const pct = parseFloat(chip.dataset.pct);
             const fromCat = transferFromSelect.value;
-            const currentFromAmount = appState.allocations ? (appState.allocations[fromCat] || 0) : 0;
+            const currentFromAmount = getFundAmount(fromCat);
             const computed = (currentFromAmount * pct);
-            // round to 2 decimal places
             transferAmountInput.value = Math.max(0, Math.floor(computed * 100) / 100);
         });
     });
 
     if (transferForm) {
         transferForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            handleFundTransfer();
+        });
+    }
+
+    const transferBtn = document.getElementById("transfer-btn");
+    if (transferBtn) {
+        transferBtn.addEventListener("click", (e) => {
             e.preventDefault();
             handleFundTransfer();
         });
@@ -153,6 +184,39 @@ function setupEventListeners() {
         });
     }
 
+    // Manual Allocation Editor Listeners
+    if (manualTargetSelect) {
+        manualTargetSelect.addEventListener("change", updateManualCurrentBadge);
+    }
+
+    if (manualForm) {
+        manualForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            handleManualAllocation();
+        });
+    }
+
+    if (manualSetBtn) {
+        manualSetBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            handleManualAllocation();
+        });
+    }
+
+    // Clear Transfer Log Button
+    if (clearNotesBtn) {
+        clearNotesBtn.addEventListener("click", () => {
+            if (!appState.transferLogs || appState.transferLogs.length === 0) {
+                showToast("Transfer log is already empty", "info");
+                return;
+            }
+            appState.transferLogs = [];
+            saveStateToLocalStorage();
+            renderTransferLogs();
+            showToast("Transfer history & notes cleared", "danger");
+        });
+    }
+
     // Delete All Data (Modal Flow)
     deleteDataBtn.addEventListener("click", () => {
         deleteModal.classList.remove("hidden");
@@ -162,7 +226,6 @@ function setupEventListeners() {
         deleteModal.classList.add("hidden");
     });
 
-    // Close Modal on backdrop click
     deleteModal.addEventListener("click", (e) => {
         if (e.target === deleteModal) {
             deleteModal.classList.add("hidden");
@@ -201,14 +264,80 @@ function formatCurrency(amount, currencyCode = appState.currency) {
     }
 }
 
-// --- Calculation Logic ---
+// --- Calculation & Fund State Logic ---
 function initDefaultAllocations(income) {
     appState.allocations = {
         needs: income * 0.50,
-        growth: income * 0.30,
         lifestyle: income * 0.10,
-        protection: income * 0.10
+        ef: income * 0.10,
+        in: income * 0.10,
+        learn: income * 0.10,
+        ins: income * 0.05,
+        debt: income * 0.05
     };
+}
+
+function normalizeAllocationsState() {
+    if (!appState.allocations) return;
+    // Upgrade legacy state { needs, growth, lifestyle, protection } if found
+    if (appState.allocations.ef === undefined) {
+        const growth = appState.allocations.growth || 0;
+        const prot = appState.allocations.protection || 0;
+        appState.allocations.ef = growth / 3;
+        appState.allocations.in = growth / 3;
+        appState.allocations.learn = growth / 3;
+        appState.allocations.ins = prot / 2;
+        appState.allocations.debt = prot / 2;
+        delete appState.allocations.growth;
+        delete appState.allocations.protection;
+    }
+}
+
+function getFundAmount(key) {
+    if (!appState.allocations) return 0;
+    normalizeAllocationsState();
+
+    if (key === "growth") {
+        return (appState.allocations.ef || 0) + (appState.allocations.in || 0) + (appState.allocations.learn || 0);
+    }
+    if (key === "protection") {
+        return (appState.allocations.ins || 0) + (appState.allocations.debt || 0);
+    }
+    return appState.allocations[key] !== undefined ? appState.allocations[key] : 0;
+}
+
+function setFundAmount(key, amount) {
+    if (!appState.allocations) return;
+    normalizeAllocationsState();
+    amount = Math.max(0, amount);
+
+    if (key === "growth") {
+        const currentTotal = getFundAmount("growth");
+        if (currentTotal > 0) {
+            const ratio = amount / currentTotal;
+            appState.allocations.ef *= ratio;
+            appState.allocations.in *= ratio;
+            appState.allocations.learn *= ratio;
+        } else {
+            const part = amount / 3;
+            appState.allocations.ef = part;
+            appState.allocations.in = part;
+            appState.allocations.learn = part;
+        }
+    } else if (key === "protection") {
+        const currentTotal = getFundAmount("protection");
+        if (currentTotal > 0) {
+            const ratio = amount / currentTotal;
+            appState.allocations.ins *= ratio;
+            appState.allocations.debt *= ratio;
+        } else {
+            const part = amount / 2;
+            appState.allocations.ins = part;
+            appState.allocations.debt = part;
+        }
+    } else {
+        appState.allocations[key] = amount;
+    }
 }
 
 function performCalculation(saveToHistory = false) {
@@ -225,14 +354,12 @@ function performCalculation(saveToHistory = false) {
     updateUIResults();
 
     if (saveToHistory) {
-        // Save to History Log
         const newRecord = {
             id: Date.now(),
             income: rawVal,
             currency: appState.currency,
             date: new Date().toLocaleString()
         };
-        // Keep max 10 records
         appState.history.unshift(newRecord);
         if (appState.history.length > 10) {
             appState.history.pop();
@@ -244,6 +371,7 @@ function performCalculation(saveToHistory = false) {
     renderHistory();
 }
 
+// --- Fund Transfer Between Sub-funds & Main Funds ---
 function handleFundTransfer() {
     if (!appState.income || !appState.allocations) {
         showToast("Please calculate budget first", "danger");
@@ -253,9 +381,10 @@ function handleFundTransfer() {
     const fromCat = transferFromSelect.value;
     const toCat = transferToSelect.value;
     const transferAmount = parseFloat(transferAmountInput.value);
+    const noteText = (transferNoteInput.value || "").trim();
 
     if (fromCat === toCat) {
-        showToast("Please select two different categories to transfer funds", "danger");
+        showToast("Please select two different categories/sub-funds to transfer", "danger");
         return;
     }
 
@@ -265,34 +394,105 @@ function handleFundTransfer() {
         return;
     }
 
-    const availableAmount = appState.allocations[fromCat] || 0;
+    const availableAmount = getFundAmount(fromCat);
     if (transferAmount > availableAmount + 0.0001) {
         showToast(`Insufficient funds in ${getCategoryName(fromCat)}! Available: ${formatCurrency(availableAmount)}`, "danger");
         return;
     }
 
     // Execute transfer
-    appState.allocations[fromCat] = Math.max(0, appState.allocations[fromCat] - transferAmount);
-    appState.allocations[toCat] = (appState.allocations[toCat] || 0) + transferAmount;
+    const newFromAmt = Math.max(0, availableAmount - transferAmount);
+    const newToAmt = getFundAmount(toCat) + transferAmount;
+    setFundAmount(fromCat, newFromAmt);
+    setFundAmount(toCat, newToAmt);
 
-    // Reset transfer input field
+    // Record Transfer Audit Log
+    const logEntry = {
+        id: Date.now(),
+        type: "transfer",
+        from: fromCat,
+        fromName: getCategoryName(fromCat),
+        to: toCat,
+        toName: getCategoryName(toCat),
+        amount: transferAmount,
+        currency: appState.currency,
+        note: noteText || "No note provided",
+        date: new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    };
+
+    if (!Array.isArray(appState.transferLogs)) {
+        appState.transferLogs = [];
+    }
+    appState.transferLogs.unshift(logEntry);
+    if (appState.transferLogs.length > 25) {
+        appState.transferLogs.pop();
+    }
+
+    // Reset inputs
     transferAmountInput.value = "";
+    transferNoteInput.value = "";
 
-    // Update entire UI dynamically
     updateUIResults();
     saveStateToLocalStorage();
 
-    showToast(`Successfully moved ${formatCurrency(transferAmount)} from ${getCategoryName(fromCat)} to ${getCategoryName(toCat)}!`, "success");
+    showToast(`Transferred ${formatCurrency(transferAmount)} from ${getCategoryName(fromCat)} to ${getCategoryName(toCat)}!`, "success");
+}
+
+// --- Manual Direct Editor ---
+function handleManualAllocation() {
+    if (!appState.income || !appState.allocations) {
+        showToast("Please calculate budget first", "danger");
+        return;
+    }
+
+    const targetKey = manualTargetSelect.value;
+    const newAmount = parseFloat(manualAmountInput.value);
+    const noteText = (manualNoteInput.value || "").trim();
+
+    if (isNaN(newAmount) || newAmount < 0) {
+        showToast("Please enter a valid positive amount", "danger");
+        manualAmountInput.focus();
+        return;
+    }
+
+    const oldAmount = getFundAmount(targetKey);
+    setFundAmount(targetKey, newAmount);
+
+    // Log manual change in audit notes
+    const diff = newAmount - oldAmount;
+    const logEntry = {
+        id: Date.now(),
+        type: "manual",
+        target: targetKey,
+        targetName: getCategoryName(targetKey),
+        oldAmount: oldAmount,
+        newAmount: newAmount,
+        diff: diff,
+        amount: newAmount,
+        currency: appState.currency,
+        note: noteText || (diff >= 0 ? `Set to ${formatCurrency(newAmount)} (+${formatCurrency(diff)})` : `Set to ${formatCurrency(newAmount)} (${formatCurrency(diff)})`),
+        date: new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    };
+
+    if (!Array.isArray(appState.transferLogs)) {
+        appState.transferLogs = [];
+    }
+    appState.transferLogs.unshift(logEntry);
+    if (appState.transferLogs.length > 25) {
+        appState.transferLogs.pop();
+    }
+
+    manualAmountInput.value = "";
+    manualNoteInput.value = "";
+
+    updateUIResults();
+    saveStateToLocalStorage();
+
+    showToast(`${getCategoryName(targetKey)} updated to ${formatCurrency(newAmount)}!`, "success");
 }
 
 function getCategoryName(catKey) {
-    const names = {
-        needs: "Needs",
-        growth: "Growth",
-        lifestyle: "Lifestyle",
-        protection: "Protection"
-    };
-    return names[catKey] || catKey;
+    return ALLOCATION_NAMES[catKey] || catKey;
 }
 
 function updateTransferBadges() {
@@ -300,8 +500,8 @@ function updateTransferBadges() {
     const fromCat = transferFromSelect.value;
     const toCat = transferToSelect.value;
 
-    const fromAmt = appState.allocations[fromCat] || 0;
-    const toAmt = appState.allocations[toCat] || 0;
+    const fromAmt = getFundAmount(fromCat);
+    const toAmt = getFundAmount(toCat);
 
     if (availableFromBadge) {
         availableFromBadge.textContent = `Available: ${formatCurrency(fromAmt)}`;
@@ -311,10 +511,30 @@ function updateTransferBadges() {
     }
 }
 
+function updateManualCurrentBadge() {
+    if (!appState.allocations || !manualTargetSelect) return;
+    const targetKey = manualTargetSelect.value;
+    const curAmt = getFundAmount(targetKey);
+    if (manualCurrentBadge) {
+        manualCurrentBadge.textContent = `Current: ${formatCurrency(curAmt)}`;
+    }
+}
+
 function updateUIResults() {
     if (!appState.allocations || appState.income <= 0) return;
+    normalizeAllocationsState();
 
-    const { needs, growth, lifestyle, protection } = appState.allocations;
+    const needs = appState.allocations.needs || 0;
+    const lifestyle = appState.allocations.lifestyle || 0;
+    const ef = appState.allocations.ef || 0;
+    const inVal = appState.allocations.in || 0;
+    const learn = appState.allocations.learn || 0;
+    const ins = appState.allocations.ins || 0;
+    const debt = appState.allocations.debt || 0;
+
+    const growth = ef + inVal + learn;
+    const protection = ins + debt;
+
     const incomeVal = appState.income;
     const totalAllocated = needs + growth + lifestyle + protection;
 
@@ -334,7 +554,7 @@ function updateUIResults() {
         summaryAllocation.textContent = `${totalPct.toFixed(1)}% Allocated`;
     }
 
-    // Update Progress Bars (normalize visual segments to 100% of the bar width)
+    // Update Progress Bars
     const barSum = Math.max(0.0001, needs + growth + lifestyle + protection);
     if (barNeeds) barNeeds.style.width = `${(needs / barSum) * 100}%`;
     if (barGrowth) barGrowth.style.width = `${(growth / barSum) * 100}%`;
@@ -368,27 +588,84 @@ function updateUIResults() {
     lifestyleElem.textContent = formatCurrency(lifestyle);
     protElem.textContent = formatCurrency(protection);
 
-    // Update Sub-items dynamically based on allocated category pool
-    // Growth sub-items split equally across 3 buckets
-    const growthSub = growth / 3;
-    efElem.textContent = formatCurrency(growthSub);
-    investElem.textContent = formatCurrency(growthSub);
-    learnElem.textContent = formatCurrency(growthSub);
+    // Update Individual Sub-items directly from allocated state
+    efElem.textContent = formatCurrency(ef);
+    investElem.textContent = formatCurrency(inVal);
+    learnElem.textContent = formatCurrency(learn);
+    insElem.textContent = formatCurrency(ins);
+    debtElem.textContent = formatCurrency(debt);
 
-    // Protection sub-items split equally across 2 buckets
-    const protSub = protection / 2;
-    insElem.textContent = formatCurrency(protSub);
-    debtElem.textContent = formatCurrency(protSub);
-
-    // Update Transfer Section UI
+    // Update Currency Symbols & Interactive Badges
     const currConfig = CURRENCIES[appState.currency] || CURRENCIES.USD;
-    if (transferCurrencySymbol) {
-        transferCurrencySymbol.textContent = currConfig.symbol;
-    }
+    if (transferCurrencySymbol) transferCurrencySymbol.textContent = currConfig.symbol;
+    if (manualCurrencySymbol) manualCurrencySymbol.textContent = currConfig.symbol;
+
     updateTransferBadges();
+    updateManualCurrentBadge();
+    renderTransferLogs();
 
     // Unhide Results Section
     resultsSection.classList.remove("hidden");
+}
+
+// --- Render Transfer Audit History & Notes ---
+function renderTransferLogs() {
+    if (!transferLogList) return;
+    transferLogList.innerHTML = "";
+
+    if (!appState.transferLogs || appState.transferLogs.length === 0) {
+        transferLogList.innerHTML = `<p class="empty-history-msg">No fund transfers recorded yet.</p>`;
+        return;
+    }
+
+    appState.transferLogs.forEach(entry => {
+        const itemEl = document.createElement("div");
+        itemEl.className = "transfer-log-item";
+
+        const formattedAmt = formatCurrency(entry.amount, entry.currency || appState.currency);
+
+        if (entry.type === "manual") {
+            const isGain = entry.diff >= 0;
+            itemEl.innerHTML = `
+                <div class="transfer-log-route">
+                    <span class="log-badge log-manual"><i class="fa-solid fa-sliders"></i> Manual Set</span>
+                    <span class="log-target"><strong>${entry.targetName}</strong></span>
+                    <span class="log-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+                    <span class="log-amount ${isGain ? 'text-gain' : 'text-danger'}">${formattedAmt}</span>
+                </div>
+                <div class="transfer-log-details">
+                    <p class="transfer-log-note"><i class="fa-solid fa-note-sticky"></i> ${escapeHTML(entry.note)}</p>
+                    <span class="transfer-log-date">${entry.date}</span>
+                </div>
+            `;
+        } else {
+            itemEl.innerHTML = `
+                <div class="transfer-log-route">
+                    <span class="log-from">${entry.fromName}</span>
+                    <span class="log-arrow"><i class="fa-solid fa-arrow-right-long"></i></span>
+                    <span class="log-to">${entry.toName}</span>
+                    <span class="log-amount text-accent">${formattedAmt}</span>
+                </div>
+                <div class="transfer-log-details">
+                    <p class="transfer-log-note"><i class="fa-solid fa-note-sticky"></i> ${escapeHTML(entry.note)}</p>
+                    <span class="transfer-log-date">${entry.date}</span>
+                </div>
+            `;
+        }
+
+        transferLogList.appendChild(itemEl);
+    });
+}
+
+function escapeHTML(str) {
+    if (!str) return "";
+    return str.replace(/[&<>'"]/g, tag => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        "\"": "&quot;"
+    }[tag] || tag));
 }
 
 // --- LocalStorage Management ---
@@ -409,6 +686,7 @@ function loadStateFromLocalStorage() {
                 income: parsed.income || 0,
                 currency: parsed.currency || "USD",
                 allocations: parsed.allocations || null,
+                transferLogs: Array.isArray(parsed.transferLogs) ? parsed.transferLogs : [],
                 history: Array.isArray(parsed.history) ? parsed.history : []
             };
 
@@ -419,6 +697,7 @@ function loadStateFromLocalStorage() {
                 const sym = selectedOption.getAttribute("data-symbol") || "$";
                 currencySymbolSpan.textContent = sym;
                 if (transferCurrencySymbol) transferCurrencySymbol.textContent = sym;
+                if (manualCurrencySymbol) manualCurrencySymbol.textContent = sym;
             }
 
             // Restore Income & Allocations if exists
@@ -431,6 +710,7 @@ function loadStateFromLocalStorage() {
             }
 
             renderHistory();
+            renderTransferLogs();
         }
     } catch (err) {
         console.error("Failed to load from LocalStorage:", err);
@@ -440,24 +720,24 @@ function loadStateFromLocalStorage() {
 // DELETE DATA FROM LOCALSTORAGE
 function deleteAllLocalStorageData() {
     try {
-        // Clear specific key or clear all LocalStorage
         localStorage.removeItem(STORAGE_KEY);
-        
-        // Reset app internal state
+
         appState = {
             income: 0,
             currency: "USD",
             allocations: null,
+            transferLogs: [],
             history: []
         };
 
-        // Reset UI
         incomeInput.value = "";
         currencySelect.value = "USD";
         currencySymbolSpan.textContent = "$";
         if (transferCurrencySymbol) transferCurrencySymbol.textContent = "$";
+        if (manualCurrencySymbol) manualCurrencySymbol.textContent = "$";
         resultsSection.classList.add("hidden");
         renderHistory();
+        renderTransferLogs();
 
         showToast("All LocalStorage data deleted successfully!", "danger");
     } catch (err) {
@@ -485,7 +765,7 @@ function renderHistory() {
     appState.history.forEach((record) => {
         const itemEl = document.createElement("div");
         itemEl.className = "history-item";
-        
+
         const formattedAmt = formatCurrency(record.income, record.currency || appState.currency);
 
         itemEl.innerHTML = `
@@ -503,7 +783,6 @@ function renderHistory() {
             </div>
         `;
 
-        // Event listeners for individual items
         itemEl.querySelector(".load-record-btn").addEventListener("click", () => {
             incomeInput.value = record.income;
             if (record.currency) {
@@ -514,6 +793,7 @@ function renderHistory() {
                     const sym = option.getAttribute("data-symbol") || "$";
                     currencySymbolSpan.textContent = sym;
                     if (transferCurrencySymbol) transferCurrencySymbol.textContent = sym;
+                    if (manualCurrencySymbol) manualCurrencySymbol.textContent = sym;
                 }
             }
             performCalculation(false);
@@ -532,7 +812,7 @@ function renderHistory() {
 function showToast(message, type = "info") {
     const toast = document.createElement("div");
     toast.className = `toast toast-${type}`;
-    
+
     let iconClass = "fa-circle-info";
     if (type === "success") iconClass = "fa-circle-check";
     if (type === "danger") iconClass = "fa-circle-exclamation";
