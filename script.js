@@ -166,14 +166,6 @@ function setupEventListeners() {
         });
     }
 
-    const transferBtn = document.getElementById("transfer-btn");
-    if (transferBtn) {
-        transferBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            handleFundTransfer();
-        });
-    }
-
     if (resetAllocationsBtn) {
         resetAllocationsBtn.addEventListener("click", () => {
             if (appState.income <= 0) return;
@@ -191,13 +183,6 @@ function setupEventListeners() {
 
     if (manualForm) {
         manualForm.addEventListener("submit", (e) => {
-            e.preventDefault();
-            handleManualAllocation();
-        });
-    }
-
-    if (manualSetBtn) {
-        manualSetBtn.addEventListener("click", (e) => {
             e.preventDefault();
             handleManualAllocation();
         });
