@@ -8,25 +8,32 @@ A modern, responsive, glassmorphic web application for calculating personal budg
 
 - 🎨 **Glassmorphism UI**: High-end dark theme featuring frosted glass cards, vibrant ambient color gradients, and clean typography.
 - 🧮 **Custom Allocation Logic**:
-  - **Needs (50%)**: Essential expenses (rent, groceries, utilities).
+  - **Needs (50%)**: Essential expenses:
+    - Travel (15%)
+    - Medical (15%)
+    - Other Needs (20%)
   - **Growth (30%)**:
     - Emergency Fund (10%)
     - Investments (10%)
     - Learning & Skills (10%)
-  - **Life Style (10%)**: Personal entertainment, hobbies, and dining.
+  - **Lifestyle (10%)**: Personal entertainment and self-care:
+    - Clothes (4%)
+    - Grooming (3%)
+    - Other Lifestyle (3%)
   - **Protection (10%)**:
     - Insurance (5%)
     - Debt Repayment (5%)
 - 🔄 **Fund Transfer / Move Money (Sub-funds & Main Funds)**:
-  - Reallocate money between any main category (*Needs*, *Lifestyle*) or granular sub-tabs (*Emergency Fund*, *Investments*, *Learning & Skills*, *Insurance*, *Debt Repayment*).
+  - Reallocate money between any main category (*Needs*, *Growth*, *Lifestyle*, *Protection*) or any granular sub-tabs (*Travel*, *Medical*, *Other Needs*, *Emergency Fund*, *Investments*, *Learning & Skills*, *Clothes*, *Grooming*, *Other Lifestyle*, *Insurance*, *Debt Repayment*).
   - Quick percentage chips (`25%`, `50%`, `Max`) for fast calculations.
   - Live available fund badges showing real-time balance for source and target funds.
   - **Transfer Notes & Audit Log**: Attach a reason/note to each transfer (e.g., *"Moved for medical insurance premium"*) to accurately identify and audit where money moved.
-  - **"Reset to Default"** button to restore standard 50/30/10/10 distribution anytime.
+  - **"Reset to Default"** button to restore standard distribution anytime.
 - 🎛️ **Manual Allocation Editor**:
-  - Manually input and set the exact monetary amount into any category or sub-category tab.
+  - Set custom monetary amounts into any category or sub-category tab. Both the **Amount** and **Reason / Note** fields are optional:
+    - If **Amount** is left empty, the current allocated balance is preserved, allowing you to log a note or audit comment.
+    - If **Note** is left empty, a descriptive automatic audit entry is created.
   - Dynamically recalculates overall budget totals, percentages, and progress bars.
-  - Optional custom note for each manual budget modification.
 - 📈 **Dynamic Live Totals & Percentage Tracking**:
   - Live dynamic total allocated amount and allocation percentage indicators in the summary banner.
   - Interactive multi-segment progress bar and legend that reflect transfers dynamically.

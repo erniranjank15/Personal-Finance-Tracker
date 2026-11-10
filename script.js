@@ -43,6 +43,14 @@ const protElem = document.querySelector(".prot");
 const insElem = document.querySelector(".ins");
 const debtElem = document.querySelector(".debt");
 
+const travelElem = document.querySelector(".travel");
+const medicalElem = document.querySelector(".medical");
+const otherneedsElem = document.querySelector(".other-needs");
+
+const clothesElem = document.querySelector(".clothes");
+const groomingElem = document.querySelector(".grooming");
+const otherlifestyleElem = document.querySelector(".other-ls");
+
 // Fund Transfer Elements
 const transferForm = document.getElementById("transfer-form");
 const transferFromSelect = document.getElementById("transfer-from");
@@ -94,15 +102,23 @@ let appState = {
 
 // --- Item Names & Hierarchy Mapping ---
 const ALLOCATION_NAMES = {
-    needs: "Needs",
-    lifestyle: "Lifestyle",
+    needs: "Needs (Total)",
+    lifestyle: "Lifestyle (Total)",
     ef: "Emergency Fund",
     in: "Investments",
     learn: "Learning & Skills",
     ins: "Insurance",
     debt: "Debt Repayment",
     growth: "Growth (Total)",
-    protection: "Protection (Total)"
+    protection: "Protection (Total)",
+    travel:"Travel",
+    medical:"Medical",
+    other_needs:"Other Needs",
+    clothes:"Clothes",
+    grooming:"Grooming",
+    other_ls:"Other Life Style"
+
+
 };
 
 // --- Initialization ---
@@ -252,11 +268,24 @@ function formatCurrency(amount, currencyCode = appState.currency) {
 // --- Calculation & Fund State Logic ---
 function initDefaultAllocations(income) {
     appState.allocations = {
-        needs: income * 0.50,
-        lifestyle: income * 0.10,
+        // Needs total is 50% of income:
+        // Travel: 15%, Medical: 15%, Other Needs: 20% (Total = 50%)
+        travel: income * 0.15,
+        medical: income * 0.15,
+        other_needs: income * 0.20,
+
+        // Growth total is 30% of income (10% each):
         ef: income * 0.10,
         in: income * 0.10,
         learn: income * 0.10,
+
+        // Lifestyle total is 10% of income:
+        // Clothes: 4%, Grooming: 3%, Other Lifestyle: 3% (Total = 10%)
+        clothes: income * 0.04,
+        grooming: income * 0.03,
+        other_ls: income * 0.03,
+
+        // Protection total is 10% of income (5% each):
         ins: income * 0.05,
         debt: income * 0.05
     };
@@ -264,16 +293,39 @@ function initDefaultAllocations(income) {
 
 function normalizeAllocationsState() {
     if (!appState.allocations) return;
-    // Upgrade legacy state { needs, growth, lifestyle, protection } if found
+
+    // Check if legacy Needs main allocation exists without sub-funds
+    if (appState.allocations.travel === undefined || appState.allocations.medical === undefined || appState.allocations.other_needs === undefined) {
+        const needsTotal = appState.allocations.needs !== undefined ? appState.allocations.needs : (appState.income * 0.50);
+        appState.allocations.travel = needsTotal * 0.30;
+        appState.allocations.medical = needsTotal * 0.30;
+        appState.allocations.other_needs = needsTotal * 0.40;
+        delete appState.allocations.needs;
+    }
+
+    // Check if legacy Lifestyle main allocation exists without sub-funds
+    if (appState.allocations.clothes === undefined || appState.allocations.grooming === undefined || appState.allocations.other_ls === undefined) {
+        const lsTotal = appState.allocations.lifestyle !== undefined ? appState.allocations.lifestyle : (appState.income * 0.10);
+        appState.allocations.clothes = lsTotal * 0.40;
+        appState.allocations.grooming = lsTotal * 0.30;
+        appState.allocations.other_ls = lsTotal * 0.30;
+        delete appState.allocations.lifestyle;
+    }
+
+    // Check if legacy Growth main allocation exists
     if (appState.allocations.ef === undefined) {
-        const growth = appState.allocations.growth || 0;
-        const prot = appState.allocations.protection || 0;
+        const growth = appState.allocations.growth || (appState.income * 0.30);
         appState.allocations.ef = growth / 3;
         appState.allocations.in = growth / 3;
         appState.allocations.learn = growth / 3;
+        delete appState.allocations.growth;
+    }
+
+    // Check if legacy Protection main allocation exists
+    if (appState.allocations.ins === undefined) {
+        const prot = appState.allocations.protection || (appState.income * 0.10);
         appState.allocations.ins = prot / 2;
         appState.allocations.debt = prot / 2;
-        delete appState.allocations.growth;
         delete appState.allocations.protection;
     }
 }
@@ -282,8 +334,14 @@ function getFundAmount(key) {
     if (!appState.allocations) return 0;
     normalizeAllocationsState();
 
+    if (key === "needs") {
+        return (appState.allocations.travel || 0) + (appState.allocations.medical || 0) + (appState.allocations.other_needs || 0);
+    }
     if (key === "growth") {
         return (appState.allocations.ef || 0) + (appState.allocations.in || 0) + (appState.allocations.learn || 0);
+    }
+    if (key === "lifestyle") {
+        return (appState.allocations.clothes || 0) + (appState.allocations.grooming || 0) + (appState.allocations.other_ls || 0);
     }
     if (key === "protection") {
         return (appState.allocations.ins || 0) + (appState.allocations.debt || 0);
@@ -296,7 +354,19 @@ function setFundAmount(key, amount) {
     normalizeAllocationsState();
     amount = Math.max(0, amount);
 
-    if (key === "growth") {
+    if (key === "needs") {
+        const currentTotal = getFundAmount("needs");
+        if (currentTotal > 0) {
+            const ratio = amount / currentTotal;
+            appState.allocations.travel *= ratio;
+            appState.allocations.medical *= ratio;
+            appState.allocations.other_needs *= ratio;
+        } else {
+            appState.allocations.travel = amount * 0.30;
+            appState.allocations.medical = amount * 0.30;
+            appState.allocations.other_needs = amount * 0.40;
+        }
+    } else if (key === "growth") {
         const currentTotal = getFundAmount("growth");
         if (currentTotal > 0) {
             const ratio = amount / currentTotal;
@@ -308,6 +378,18 @@ function setFundAmount(key, amount) {
             appState.allocations.ef = part;
             appState.allocations.in = part;
             appState.allocations.learn = part;
+        }
+    } else if (key === "lifestyle") {
+        const currentTotal = getFundAmount("lifestyle");
+        if (currentTotal > 0) {
+            const ratio = amount / currentTotal;
+            appState.allocations.clothes *= ratio;
+            appState.allocations.grooming *= ratio;
+            appState.allocations.other_ls *= ratio;
+        } else {
+            appState.allocations.clothes = amount * 0.40;
+            appState.allocations.grooming = amount * 0.30;
+            appState.allocations.other_ls = amount * 0.30;
         }
     } else if (key === "protection") {
         const currentTotal = getFundAmount("protection");
@@ -431,20 +513,41 @@ function handleManualAllocation() {
     }
 
     const targetKey = manualTargetSelect.value;
-    const newAmount = parseFloat(manualAmountInput.value);
+    const rawVal = manualAmountInput.value.trim();
     const noteText = (manualNoteInput.value || "").trim();
 
+    const oldAmount = getFundAmount(targetKey);
+
+    // If amount is left empty/omitted, keep the existing amount
+    let newAmount = rawVal === "" ? oldAmount : parseFloat(rawVal);
+
     if (isNaN(newAmount) || newAmount < 0) {
-        showToast("Please enter a valid positive amount", "danger");
+        showToast("Please enter a valid positive amount or leave empty to keep current", "danger");
         manualAmountInput.focus();
         return;
     }
 
-    const oldAmount = getFundAmount(targetKey);
+    // If neither amount changed nor a note was provided, nothing to update
+    if (rawVal === "" && !noteText) {
+        showToast(`No change made for ${getCategoryName(targetKey)} (Current: ${formatCurrency(oldAmount)})`, "info");
+        return;
+    }
+
     setFundAmount(targetKey, newAmount);
 
     // Log manual change in audit notes
     const diff = newAmount - oldAmount;
+    let defaultNote;
+    if (rawVal === "") {
+        defaultNote = `Note attached: ${formatCurrency(newAmount)}`;
+    } else if (diff === 0) {
+        defaultNote = `Amount verified at ${formatCurrency(newAmount)}`;
+    } else if (diff > 0) {
+        defaultNote = `Set to ${formatCurrency(newAmount)} (+${formatCurrency(diff)})`;
+    } else {
+        defaultNote = `Set to ${formatCurrency(newAmount)} (${formatCurrency(diff)})`;
+    }
+
     const logEntry = {
         id: Date.now(),
         type: "manual",
@@ -455,7 +558,7 @@ function handleManualAllocation() {
         diff: diff,
         amount: newAmount,
         currency: appState.currency,
-        note: noteText || (diff >= 0 ? `Set to ${formatCurrency(newAmount)} (+${formatCurrency(diff)})` : `Set to ${formatCurrency(newAmount)} (${formatCurrency(diff)})`),
+        note: noteText || defaultNote,
         date: new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
     };
 
@@ -473,7 +576,11 @@ function handleManualAllocation() {
     updateUIResults();
     saveStateToLocalStorage();
 
-    showToast(`${getCategoryName(targetKey)} updated to ${formatCurrency(newAmount)}!`, "success");
+    if (rawVal !== "") {
+        showToast(`${getCategoryName(targetKey)} updated to ${formatCurrency(newAmount)}!`, "success");
+    } else {
+        showToast(`Note logged for ${getCategoryName(targetKey)}!`, "success");
+    }
 }
 
 function getCategoryName(catKey) {
@@ -509,15 +616,22 @@ function updateUIResults() {
     if (!appState.allocations || appState.income <= 0) return;
     normalizeAllocationsState();
 
-    const needs = appState.allocations.needs || 0;
-    const lifestyle = appState.allocations.lifestyle || 0;
+    
     const ef = appState.allocations.ef || 0;
     const inVal = appState.allocations.in || 0;
     const learn = appState.allocations.learn || 0;
     const ins = appState.allocations.ins || 0;
     const debt = appState.allocations.debt || 0;
+    const travel = appState.allocations.travel || 0;
+    const medical = appState.allocations.medical || 0;
+    const other_needs = appState.allocations.other_needs || 0;
+    const clothes = appState.allocations.clothes || 0;
+    const grooming = appState.allocations.grooming || 0;
+    const other_ls = appState.allocations.other_ls || 0;
 
+    const needs = travel + medical + other_needs;
     const growth = ef + inVal + learn;
+    const lifestyle = clothes + grooming + other_ls;
     const protection = ins + debt;
 
     const incomeVal = appState.income;
@@ -574,11 +688,20 @@ function updateUIResults() {
     protElem.textContent = formatCurrency(protection);
 
     // Update Individual Sub-items directly from allocated state
-    efElem.textContent = formatCurrency(ef);
-    investElem.textContent = formatCurrency(inVal);
-    learnElem.textContent = formatCurrency(learn);
-    insElem.textContent = formatCurrency(ins);
-    debtElem.textContent = formatCurrency(debt);
+    if (travelElem) travelElem.textContent = formatCurrency(travel);
+    if (medicalElem) medicalElem.textContent = formatCurrency(medical);
+    if (otherneedsElem) otherneedsElem.textContent = formatCurrency(other_needs);
+
+    if (efElem) efElem.textContent = formatCurrency(ef);
+    if (investElem) investElem.textContent = formatCurrency(inVal);
+    if (learnElem) learnElem.textContent = formatCurrency(learn);
+
+    if (clothesElem) clothesElem.textContent = formatCurrency(clothes);
+    if (groomingElem) groomingElem.textContent = formatCurrency(grooming);
+    if (otherlifestyleElem) otherlifestyleElem.textContent = formatCurrency(other_ls);
+
+    if (insElem) insElem.textContent = formatCurrency(ins);
+    if (debtElem) debtElem.textContent = formatCurrency(debt);
 
     // Update Currency Symbols & Interactive Badges
     const currConfig = CURRENCIES[appState.currency] || CURRENCIES.USD;
