@@ -14,8 +14,18 @@ const deleteDataBtn = document.getElementById("delete-data-btn");
 const resultsSection = document.getElementById("results-section");
 const summaryIncome = document.getElementById("summary-income");
 const summaryAllocatedAmount = document.getElementById("summary-allocated-amount");
+const summaryCashInHand = document.getElementById("summary-cash-in-hand");
 const summaryAllocation = document.getElementById("summary-allocation");
 const progressPercentage = document.getElementById("progress-percentage");
+
+// Cash in Hand Elements
+const cashForm = document.getElementById("cash-form");
+const cashActionSelect = document.getElementById("cash-action-select");
+const cashAmountInput = document.getElementById("cash-amount-input");
+const cashNoteInput = document.getElementById("cash-note-input");
+const cashCurrencySymbol = document.getElementById("cash-currency-symbol");
+const currentCashDisplay = document.getElementById("current-cash-display");
+const downloadPdfBtn = document.getElementById("download-pdf-btn");
 
 // Progress bars & legend percentages
 const barNeeds = document.getElementById("bar-needs");
@@ -85,8 +95,8 @@ const toastContainer = document.getElementById("toast-container");
 
 // Currency Config
 const CURRENCIES = {
-    USD: { symbol: "$", locale: "en-US" },
     INR: { symbol: "₹", locale: "en-IN" },
+    USD: { symbol: "$", locale: "en-US" },
     EUR: { symbol: "€", locale: "de-DE" },
     GBP: { symbol: "£", locale: "en-GB" }
 };
@@ -94,7 +104,8 @@ const CURRENCIES = {
 // Application State
 let appState = {
     income: 0,
-    currency: "USD",
+    cashInHand: 0,
+    currency: "INR",
     allocations: null, // Detailed fund breakdown
     transferLogs: [],   // Audit logs with notes
     history: []
@@ -142,6 +153,7 @@ function setupEventListeners() {
         currencySymbolSpan.textContent = symbol;
         if (transferCurrencySymbol) transferCurrencySymbol.textContent = symbol;
         if (manualCurrencySymbol) manualCurrencySymbol.textContent = symbol;
+        if (cashCurrencySymbol) cashCurrencySymbol.textContent = symbol;
 
         if (appState.income > 0) {
             updateUIResults();
@@ -204,6 +216,21 @@ function setupEventListeners() {
         });
     }
 
+    // Cash in Hand Form Listener
+    if (cashForm) {
+        cashForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            handleCashTransaction();
+        });
+    }
+
+    // Download PDF Button Listener
+    if (downloadPdfBtn) {
+        downloadPdfBtn.addEventListener("click", () => {
+            generatePdfReport();
+        });
+    }
+
     // Clear Transfer Log Button
     if (clearNotesBtn) {
         clearNotesBtn.addEventListener("click", () => {
@@ -253,7 +280,7 @@ function setupEventListeners() {
 
 // --- Formatters ---
 function formatCurrency(amount, currencyCode = appState.currency) {
-    const config = CURRENCIES[currencyCode] || CURRENCIES.USD;
+    const config = CURRENCIES[currencyCode] || CURRENCIES.INR;
     try {
         return new Intl.NumberFormat(config.locale, {
             style: "currency",
@@ -583,6 +610,71 @@ function handleManualAllocation() {
     }
 }
 
+// --- Cash in Hand Management ---
+function handleCashTransaction() {
+    if (!cashAmountInput) return;
+    const action = cashActionSelect.value;
+    const amountVal = parseFloat(cashAmountInput.value);
+    const noteText = (cashNoteInput.value || "").trim();
+
+    if (isNaN(amountVal) || amountVal < 0) {
+        showToast("Please enter a valid cash amount greater than or equal to 0", "danger");
+        cashAmountInput.focus();
+        return;
+    }
+
+    const prevCash = Number(appState.cashInHand) || 0;
+    let newCash = prevCash;
+    let actionDesc = "";
+
+    if (action === "set") {
+        newCash = amountVal;
+        actionDesc = `Cash in hand set to ${formatCurrency(newCash)}`;
+    } else if (action === "add") {
+        newCash = prevCash + amountVal;
+        actionDesc = `Added ${formatCurrency(amountVal)} to Cash in hand`;
+    } else if (action === "deduct") {
+        if (amountVal > prevCash) {
+            showToast(`Cannot deduct ${formatCurrency(amountVal)}! Current cash available: ${formatCurrency(prevCash)}`, "danger");
+            return;
+        }
+        newCash = Math.max(0, prevCash - amountVal);
+        actionDesc = `Spent/Deducted ${formatCurrency(amountVal)} from Cash in hand`;
+    }
+
+    appState.cashInHand = newCash;
+
+    // Record Cash Audit Log
+    const logEntry = {
+        id: Date.now(),
+        type: "manual",
+        target: "cash",
+        targetName: "Cash in Hand",
+        oldAmount: prevCash,
+        newAmount: newCash,
+        diff: newCash - prevCash,
+        amount: newCash,
+        currency: appState.currency,
+        note: noteText ? `${actionDesc} (${noteText})` : actionDesc,
+        date: new Date().toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    };
+
+    if (!Array.isArray(appState.transferLogs)) {
+        appState.transferLogs = [];
+    }
+    appState.transferLogs.unshift(logEntry);
+    if (appState.transferLogs.length > 25) {
+        appState.transferLogs.pop();
+    }
+
+    cashAmountInput.value = "";
+    if (cashNoteInput) cashNoteInput.value = "";
+
+    updateUIResults();
+    saveStateToLocalStorage();
+    showToast(actionDesc, "success");
+}
+
 function getCategoryName(catKey) {
     return ALLOCATION_NAMES[catKey] || catKey;
 }
@@ -707,6 +799,14 @@ function updateUIResults() {
     const currConfig = CURRENCIES[appState.currency] || CURRENCIES.USD;
     if (transferCurrencySymbol) transferCurrencySymbol.textContent = currConfig.symbol;
     if (manualCurrencySymbol) manualCurrencySymbol.textContent = currConfig.symbol;
+    if (cashCurrencySymbol) cashCurrencySymbol.textContent = currConfig.symbol;
+
+    if (summaryCashInHand) {
+        summaryCashInHand.textContent = formatCurrency(appState.cashInHand || 0);
+    }
+    if (currentCashDisplay) {
+        currentCashDisplay.textContent = formatCurrency(appState.cashInHand || 0);
+    }
 
     updateTransferBadges();
     updateManualCurrentBadge();
@@ -792,6 +892,7 @@ function loadStateFromLocalStorage() {
             const parsed = JSON.parse(savedData);
             appState = {
                 income: parsed.income || 0,
+                cashInHand: Number(parsed.cashInHand) || 0,
                 currency: parsed.currency || "USD",
                 allocations: parsed.allocations || null,
                 transferLogs: Array.isArray(parsed.transferLogs) ? parsed.transferLogs : [],
@@ -806,6 +907,14 @@ function loadStateFromLocalStorage() {
                 currencySymbolSpan.textContent = sym;
                 if (transferCurrencySymbol) transferCurrencySymbol.textContent = sym;
                 if (manualCurrencySymbol) manualCurrencySymbol.textContent = sym;
+                if (cashCurrencySymbol) cashCurrencySymbol.textContent = sym;
+            }
+
+            if (currentCashDisplay) {
+                currentCashDisplay.textContent = formatCurrency(appState.cashInHand || 0);
+            }
+            if (summaryCashInHand) {
+                summaryCashInHand.textContent = formatCurrency(appState.cashInHand || 0);
             }
 
             // Restore Income & Allocations if exists
@@ -832,17 +941,19 @@ function deleteAllLocalStorageData() {
 
         appState = {
             income: 0,
-            currency: "USD",
+            cashInHand: 0,
+            currency: "INR",
             allocations: null,
             transferLogs: [],
             history: []
         };
 
         incomeInput.value = "";
-        currencySelect.value = "USD";
-        currencySymbolSpan.textContent = "$";
-        if (transferCurrencySymbol) transferCurrencySymbol.textContent = "$";
-        if (manualCurrencySymbol) manualCurrencySymbol.textContent = "$";
+        currencySelect.value = "INR";
+        currencySymbolSpan.textContent = "₹";
+        if (transferCurrencySymbol) transferCurrencySymbol.textContent = "₹";
+        if (manualCurrencySymbol) manualCurrencySymbol.textContent = "₹";
+        if (cashCurrencySymbol) cashCurrencySymbol.textContent = "₹";
         resultsSection.classList.add("hidden");
         renderHistory();
         renderTransferLogs();
@@ -939,6 +1050,349 @@ function showToast(message, type = "info") {
         setTimeout(() => toast.remove(), 300);
     }, 3000);
 }
+
+// --- PDF Currency & Clean Formatter ---
+function formatPdfCurrency(amount) {
+    const val = Number(amount) || 0;
+    const formatted = val.toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+    if (appState.currency === "INR") {
+        return `Rs. ${formatted}`;
+    }
+    const sym = (CURRENCIES[appState.currency] && CURRENCIES[appState.currency].symbol) || "$";
+    return `${sym} ${formatted}`;
+}
+
+// --- PDF Report Generation with Pie Chart ---
+function generatePdfReport() {
+    if (!appState.income || !appState.allocations) {
+        showToast("Please enter income and calculate before generating report", "danger");
+        return;
+    }
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast("PDF generation library is still loading. Please try again in a moment.", "danger");
+        return;
+    }
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({
+            orientation: "portrait",
+            unit: "pt",
+            format: "a4"
+        });
+
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+
+        // Palette
+        const colorPrimary = [99, 102, 241];
+        const colorDark = [15, 23, 42];
+        const colorText = [30, 41, 59];
+        const colorMuted = [100, 116, 139];
+
+        normalizeAllocationsState();
+
+        const needs = getFundAmount("needs");
+        const growth = getFundAmount("growth");
+        const lifestyle = getFundAmount("lifestyle");
+        const protection = getFundAmount("protection");
+        const totalAllocated = needs + growth + lifestyle + protection;
+        const income = appState.income;
+        const cash = Number(appState.cashInHand) || 0;
+
+        // 1. Premium Header Banner
+        doc.setFillColor(15, 23, 42);
+        doc.rect(0, 0, pageWidth, 90, "F");
+
+        // Top decorative accent line
+        doc.setFillColor(99, 102, 241);
+        doc.rect(0, 0, pageWidth, 4, "F");
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.text("NK Finance Planner", 40, 42);
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(148, 163, 184);
+        doc.text("Comprehensive Budget Allocation & Liquid Cash Report", 40, 62);
+
+        const dateStr = new Date().toLocaleDateString(undefined, {
+            year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+        doc.text(`Generated: ${dateStr}`, pageWidth - 40, 42, { align: "right" });
+        doc.text(`Base Currency: ${appState.currency}`, pageWidth - 40, 62, { align: "right" });
+
+        // 2. Summary KPI Cards
+        const kpiY = 108;
+        const cardWidth = (pageWidth - 80 - 30) / 4;
+        const cardHeight = 60;
+
+        const kpis = [
+            { label: "MONTHLY INCOME", val: formatPdfCurrency(income), color: [79, 70, 229] },
+            { label: "TOTAL ALLOCATED", val: formatPdfCurrency(totalAllocated), color: [16, 185, 129] },
+            { label: "CASH IN HAND", val: formatPdfCurrency(cash), color: [6, 182, 212] },
+            { label: "ALLOCATION RATIO", val: `${((totalAllocated / income) * 100).toFixed(1)}%`, color: [245, 158, 11] }
+        ];
+
+        kpis.forEach((kpi, idx) => {
+            const cardX = 40 + idx * (cardWidth + 10);
+            doc.setFillColor(248, 250, 252);
+            doc.roundedRect(cardX, kpiY, cardWidth, cardHeight, 6, 6, "F");
+
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(1);
+            doc.roundedRect(cardX, kpiY, cardWidth, cardHeight, 6, 6, "S");
+
+            doc.setFontSize(7.5);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(colorMuted[0], colorMuted[1], colorMuted[2]);
+            doc.text(kpi.label, cardX + 12, kpiY + 20);
+
+            doc.setFontSize(12);
+            doc.setTextColor(kpi.color[0], kpi.color[1], kpi.color[2]);
+            doc.text(kpi.val, cardX + 12, kpiY + 44);
+        });
+
+        // 3. Render High-Resolution Donut/Pie Chart on Canvas (with native Rupee glyph support)
+        const chartY = 185;
+        const chartBoxWidth = pageWidth - 80;
+        const chartBoxHeight = 175;
+
+        // Container card for chart
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(40, chartY, chartBoxWidth, chartBoxHeight, 6, 6, "F");
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(40, chartY, chartBoxWidth, chartBoxHeight, 6, 6, "S");
+
+        const pieCanvas = document.createElement("canvas");
+        pieCanvas.width = chartBoxWidth * 2;
+        pieCanvas.height = chartBoxHeight * 2;
+        const ctx = pieCanvas.getContext("2d");
+        ctx.scale(2, 2);
+
+        const slices = [
+            { label: "Needs", value: needs, color: "#3b82f6" },
+            { label: "Growth", value: growth, color: "#10b981" },
+            { label: "Lifestyle", value: lifestyle, color: "#f59e0b" },
+            { label: "Protection", value: protection, color: "#ec4899" }
+        ];
+
+        const totalSliceVal = slices.reduce((sum, s) => sum + s.value, 0) || 1;
+        const centerX = 110;
+        const centerY = 88;
+        const radius = 68;
+        let startAngle = -Math.PI / 2;
+
+        slices.forEach(slice => {
+            const sliceAngle = (slice.value / totalSliceVal) * 2 * Math.PI;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
+            ctx.closePath();
+            ctx.fillStyle = slice.color;
+            ctx.fill();
+            startAngle += sliceAngle;
+        });
+
+        // Donut center hole
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 36, 0, 2 * Math.PI);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+
+        // Inner text inside donut hole
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = "bold 11px Arial, sans-serif";
+        ctx.fillStyle = "#0f172a";
+        ctx.fillText("Budget", centerX, centerY - 6);
+        ctx.font = "normal 10px Arial, sans-serif";
+        ctx.fillStyle = "#64748b";
+        ctx.fillText("Split", centerX, centerY + 8);
+
+        // Legend Grid on Canvas with full currency formatting
+        const legendX1 = 230;
+        const legendX2 = 380;
+        let legY1 = 45;
+        let legY2 = 45;
+
+        ctx.textAlign = "left";
+        ctx.textBaseline = "alphabetic";
+
+        slices.forEach((slice, idx) => {
+            const isLeft = idx % 2 === 0;
+            const lx = isLeft ? legendX1 : legendX2;
+            const ly = isLeft ? legY1 : legY2;
+            const pct = ((slice.value / totalSliceVal) * 100).toFixed(1);
+
+            // Dot
+            ctx.fillStyle = slice.color;
+            ctx.beginPath();
+            ctx.arc(lx + 5, ly - 4, 5, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // Label & Percentage
+            ctx.font = "bold 12px Arial, sans-serif";
+            ctx.fillStyle = "#1e293b";
+            ctx.fillText(`${slice.label} (${pct}%)`, lx + 16, ly);
+
+            // Amount with Rupee symbol
+            ctx.font = "600 11px Arial, sans-serif";
+            ctx.fillStyle = slice.color;
+            ctx.fillText(`${formatCurrency(slice.value)}`, lx + 16, ly + 18);
+
+            if (isLeft) legY1 += 48;
+            else legY2 += 48;
+        });
+
+        const pieImgData = pieCanvas.toDataURL("image/png");
+        doc.addImage(pieImgData, "PNG", 40, chartY, chartBoxWidth, chartBoxHeight);
+
+        // 4. Detailed Tab & Sub-Tab Allocation Table
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(colorText[0], colorText[1], colorText[2]);
+        doc.text("Tab & Sub-Tab Allocation Breakdown", 40, 385);
+
+        const tableBody = [
+            // Needs
+            [{ content: "Needs (Total)", styles: { fontStyle: "bold", fillColor: [239, 246, 255], textColor: [30, 64, 175] } },
+             { content: "Main Category", styles: { fontStyle: "bold", fillColor: [239, 246, 255] } },
+             { content: formatPdfCurrency(needs), styles: { fontStyle: "bold", fillColor: [239, 246, 255], textColor: [30, 64, 175] } },
+             { content: `${((needs / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [239, 246, 255] } }],
+            ["   • Travel", "Needs Sub-Tab", formatPdfCurrency(appState.allocations.travel || 0), `${(((appState.allocations.travel || 0) / income) * 100).toFixed(1)}%`],
+            ["   • Medical", "Needs Sub-Tab", formatPdfCurrency(appState.allocations.medical || 0), `${(((appState.allocations.medical || 0) / income) * 100).toFixed(1)}%`],
+            ["   • Other Needs", "Needs Sub-Tab", formatPdfCurrency(appState.allocations.other_needs || 0), `${(((appState.allocations.other_needs || 0) / income) * 100).toFixed(1)}%`],
+
+            // Growth
+            [{ content: "Growth (Total)", styles: { fontStyle: "bold", fillColor: [236, 253, 245], textColor: [6, 95, 70] } },
+             { content: "Main Category", styles: { fontStyle: "bold", fillColor: [236, 253, 245] } },
+             { content: formatPdfCurrency(growth), styles: { fontStyle: "bold", fillColor: [236, 253, 245], textColor: [6, 95, 70] } },
+             { content: `${((growth / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [236, 253, 245] } }],
+            ["   • Emergency Fund", "Growth Sub-Tab", formatPdfCurrency(appState.allocations.ef || 0), `${(((appState.allocations.ef || 0) / income) * 100).toFixed(1)}%`],
+            ["   • Investments", "Growth Sub-Tab", formatPdfCurrency(appState.allocations.in || 0), `${(((appState.allocations.in || 0) / income) * 100).toFixed(1)}%`],
+            ["   • Learning & Skills", "Growth Sub-Tab", formatPdfCurrency(appState.allocations.learn || 0), `${(((appState.allocations.learn || 0) / income) * 100).toFixed(1)}%`],
+
+            // Lifestyle
+            [{ content: "Lifestyle (Total)", styles: { fontStyle: "bold", fillColor: [254, 243, 199], textColor: [146, 64, 14] } },
+             { content: "Main Category", styles: { fontStyle: "bold", fillColor: [254, 243, 199] } },
+             { content: formatPdfCurrency(lifestyle), styles: { fontStyle: "bold", fillColor: [254, 243, 199], textColor: [146, 64, 14] } },
+             { content: `${((lifestyle / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [254, 243, 199] } }],
+            ["   • Clothes", "Lifestyle Sub-Tab", formatPdfCurrency(appState.allocations.clothes || 0), `${(((appState.allocations.clothes || 0) / income) * 100).toFixed(1)}%`],
+            ["   • Grooming", "Lifestyle Sub-Tab", formatPdfCurrency(appState.allocations.grooming || 0), `${(((appState.allocations.grooming || 0) / income) * 100).toFixed(1)}%`],
+            ["   • Other Lifestyle", "Lifestyle Sub-Tab", formatPdfCurrency(appState.allocations.other_ls || 0), `${(((appState.allocations.other_ls || 0) / income) * 100).toFixed(1)}%`],
+
+            // Protection
+            [{ content: "Protection (Total)", styles: { fontStyle: "bold", fillColor: [253, 242, 248], textColor: [157, 23, 77] } },
+             { content: "Main Category", styles: { fontStyle: "bold", fillColor: [253, 242, 248] } },
+             { content: formatPdfCurrency(protection), styles: { fontStyle: "bold", fillColor: [253, 242, 248], textColor: [157, 23, 77] } },
+             { content: `${((protection / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [253, 242, 248] } }],
+            ["   • Insurance", "Protection Sub-Tab", formatPdfCurrency(appState.allocations.ins || 0), `${(((appState.allocations.ins || 0) / income) * 100).toFixed(1)}%`],
+            ["   • Debt Repayment", "Protection Sub-Tab", formatPdfCurrency(appState.allocations.debt || 0), `${(((appState.allocations.debt || 0) / income) * 100).toFixed(1)}%`]
+        ];
+
+        doc.autoTable({
+            startY: 398,
+            head: [["Category / Sub-Tab", "Level", "Allocated Amount", "% of Monthly Income"]],
+            body: tableBody,
+            margin: { left: 40, right: 40 },
+            theme: "grid",
+            headStyles: {
+                fillColor: [15, 23, 42],
+                textColor: [255, 255, 255],
+                fontSize: 8.5,
+                fontStyle: "bold"
+            },
+            bodyStyles: {
+                fontSize: 8,
+                textColor: [30, 41, 59]
+            },
+            alternateRowStyles: {
+                fillColor: [248, 250, 252]
+            }
+        });
+
+        // 5. Transfer Audit & Notes Log Table (if available)
+        let lastY = doc.lastAutoTable.finalY + 22;
+
+        if (appState.transferLogs && appState.transferLogs.length > 0) {
+            // Check if page break is needed
+            if (lastY > pageHeight - 130) {
+                doc.addPage();
+                lastY = 40;
+            }
+
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(colorText[0], colorText[1], colorText[2]);
+            doc.text("Recent Activity & Transfer Notes", 40, lastY);
+
+            const logRows = appState.transferLogs.slice(0, 8).map(entry => {
+                if (entry.type === "manual") {
+                    return [
+                        entry.date,
+                        `Set ${entry.targetName}`,
+                        formatPdfCurrency(entry.amount),
+                        entry.note || "Manual allocation"
+                    ];
+                }
+                return [
+                    entry.date,
+                    `${entry.fromName} -> ${entry.toName}`,
+                    formatPdfCurrency(entry.amount),
+                    entry.note || "Fund re-allocation"
+                ];
+            });
+
+            doc.autoTable({
+                startY: lastY + 10,
+                head: [["Date / Time", "Action / Route", "Amount", "Note / Reason"]],
+                body: logRows,
+                margin: { left: 40, right: 40 },
+                theme: "striped",
+                headStyles: {
+                    fillColor: [79, 70, 229],
+                    textColor: [255, 255, 255],
+                    fontSize: 8
+                },
+                bodyStyles: {
+                    fontSize: 7.5
+                }
+            });
+
+            lastY = doc.lastAutoTable.finalY + 20;
+        }
+
+        // Footer Page Number & Branding
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+            doc.setPage(i);
+            doc.setFontSize(8);
+            doc.setTextColor(148, 163, 184);
+            doc.text(
+                `NK Finance Planner • Page ${i} of ${totalPages}`,
+                pageWidth / 2,
+                pageHeight - 20,
+                { align: "center" }
+            );
+        }
+
+        const fileName = `Finance_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+        doc.save(fileName);
+        showToast("PDF Financial Report downloaded successfully!", "success");
+
+    } catch (err) {
+        console.error("PDF generation error:", err);
+        showToast("Error generating PDF: " + err.message, "danger");
+    }
+}
+
 
 
 

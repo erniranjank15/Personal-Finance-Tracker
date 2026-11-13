@@ -39,7 +39,18 @@ A modern, responsive, glassmorphic web application for calculating personal budg
   - Interactive multi-segment progress bar and legend that reflect transfers dynamically.
   - Sub-items dynamically re-distribute values based on parent category allocation pools.
 - 📊 **Visual Budget Bar**: Dynamic multi-segment progress bar showing total budget distribution.
-- 💱 **Multi-Currency Support**: Switch seamlessly between **USD ($)**, **INR (₹)**, **EUR (€)**, and **GBP (£)** with automatic currency formatting (`Intl.NumberFormat`).
+- 💱 **Multi-Currency Support**: Switch seamlessly between **INR (₹)** (Default), **USD ($)**, **EUR (€)**, and **GBP (£)** with automatic currency formatting (`Intl.NumberFormat`).
+- 💵 **Separate Cash in Hand / Liquid Reserves Tracker**:
+  - Keep track of physical wallet cash, emergency cash stash, or unallocated funds outside the monthly budget.
+  - Actions to *Set Exact Amount*, *Add Cash (+)*, or *Spend/Deduct (-)* with live validation and optional notes.
+  - Displays directly in the Summary Banner and persists in LocalStorage.
+- 📄 **Enhanced PDF Financial Report with Visual Donut/Pie Chart**:
+  - One-click client-side PDF export with **"Download PDF"** button.
+  - Generates a styled A4 document featuring:
+    - High-DPI Donut/Pie visual chart showing allocation percentages and clean currency formatting.
+    - Summary KPI cards for Monthly Income, Total Allocated, Cash in Hand, and Allocation Ratio.
+    - Detailed tab & sub-tab breakdown table covering every category and sub-category.
+    - Transfer audit log and notes history.
 - 💾 **LocalStorage Auto-Save**: Automatically saves monthly income, currency choice, and history log to browser storage (`localStorage`).
 - 🗑️ **Delete LocalStorage Data**: Prominent **"Delete Data"** header button with a modal prompt to permanently clear saved data and reset the planner state.
 - 📜 **Calculation History**: Log up to 10 past calculation entries with timestamps, individual delete buttons, and single-click reload into the form.

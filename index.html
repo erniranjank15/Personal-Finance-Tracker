@@ -35,6 +35,9 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button id="download-pdf-btn" class="btn btn-primary" title="Download Full Financial Report (PDF with Pie Chart)">
+                    <i class="fa-solid fa-file-pdf"></i> Download PDF
+                </button>
                 <button id="delete-data-btn" class="btn btn-danger" title="Clear all stored data from LocalStorage">
                     <i class="fa-solid fa-trash-can"></i> Delete Data
                 </button>
@@ -48,8 +51,8 @@
                     <div class="input-group">
                         <label for="income-input">Monthly Income</label>
                         <div class="input-wrapper">
-                            <span class="currency-symbol" id="current-currency-symbol">$</span>
-                            <input type="number" id="income-input" class="income" placeholder="e.g. 5000" min="0"
+                            <span class="currency-symbol" id="current-currency-symbol">₹</span>
+                            <input type="number" id="income-input" class="income" placeholder="e.g. 50000" min="0"
                                 step="any" autocomplete="off">
                         </div>
                     </div>
@@ -58,8 +61,8 @@
                         <label for="currency-select">Currency</label>
                         <div class="select-wrapper">
                             <select id="currency-select" class="currency-select">
+                                <option value="INR" data-symbol="₹" selected>INR (₹)</option>
                                 <option value="USD" data-symbol="$">USD ($)</option>
-                                <option value="INR" data-symbol="₹">INR (₹)</option>
                                 <option value="EUR" data-symbol="€">EUR (€)</option>
                                 <option value="GBP" data-symbol="£">GBP (£)</option>
                             </select>
@@ -94,6 +97,11 @@
                 </div>
                 <div class="summary-divider"></div>
                 <div class="summary-item">
+                    <span class="summary-label">Separate Cash in Hand</span>
+                    <h2 class="summary-value text-gain" id="summary-cash-in-hand">$0.00</h2>
+                </div>
+                <div class="summary-divider"></div>
+                <div class="summary-item">
                     <span class="summary-label">Allocation Status</span>
                     <h2 class="summary-value text-accent" id="summary-allocation">100% Allocated</h2>
                 </div>
@@ -125,6 +133,62 @@
                     <span class="legend-item"><span class="dot seg-protection"></span> Protection (<span
                             id="legend-protection-pct">10%</span>)</span>
                 </div>
+            </div>
+
+            <!-- Separate Cash in Hand Card -->
+            <div class="card cash-card">
+                <div class="cash-header">
+                    <div class="cash-title">
+                        <div class="cash-icon">
+                            <i class="fa-solid fa-money-bill-wave"></i>
+                        </div>
+                        <div>
+                            <h3>Separate Cash in Hand / Liquid Reserves</h3>
+                            <p class="card-desc">Keep track of physical cash, emergency stash, or unallocated funds outside monthly budget.</p>
+                        </div>
+                    </div>
+                    <div class="cash-balance-display">
+                        <span class="cash-balance-label">Current Cash</span>
+                        <span class="cash-balance-val text-gain" id="current-cash-display">$0.00</span>
+                    </div>
+                </div>
+
+                <form id="cash-form" class="cash-form">
+                    <div class="cash-grid">
+                        <div class="input-group">
+                            <label for="cash-action-select"><i class="fa-solid fa-bolt"></i> Action</label>
+                            <div class="select-wrapper">
+                                <select id="cash-action-select" class="currency-select">
+                                    <option value="set">Set Exact Amount</option>
+                                    <option value="add">Add Cash (+)</option>
+                                    <option value="deduct">Spend / Deduct (-)</option>
+                                </select>
+                                <i class="fa-solid fa-chevron-down select-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="cash-amount-input"><i class="fa-solid fa-coins"></i> Amount</label>
+                            <div class="input-wrapper">
+                                <span class="currency-symbol" id="cash-currency-symbol">$</span>
+                                <input type="number" id="cash-amount-input" class="income" placeholder="e.g. 500" min="0" step="any" required>
+                            </div>
+                        </div>
+
+                        <div class="input-group note-input-group">
+                            <label for="cash-note-input"><i class="fa-solid fa-note-sticky"></i> Note / Source (Optional)</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="cash-note-input" class="income note-input" placeholder="e.g. ATM withdrawal or Petty cash" maxlength="120" autocomplete="off">
+                            </div>
+                        </div>
+
+                        <div class="cash-btn-group">
+                            <button type="submit" id="cash-submit-btn" class="btn btn-primary cash-submit-btn">
+                                <i class="fa-solid fa-floppy-disk"></i> Update Cash
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
 
             <!-- Transfer Funds Card -->
@@ -325,6 +389,7 @@
                             </div>
                             <span class="category-available-badge" id="manual-current-badge">Current: $0.00</span>
                         </div>
+                        
 
                         <div class="input-group">
                             <label for="manual-amount-input"><i class="fa-solid fa-pen-to-square"></i> Set Amount (Optional)</label>
@@ -545,6 +610,9 @@
     <!-- Toast Notification -->
     <div class="toast-container" id="toast-container"></div>
 
+    <!-- jsPDF CDN for client-side PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <script src="script.js"></script>
 </body>
 
