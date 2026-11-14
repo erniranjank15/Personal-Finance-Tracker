@@ -122,12 +122,12 @@ const ALLOCATION_NAMES = {
     debt: "Debt Repayment",
     growth: "Growth (Total)",
     protection: "Protection (Total)",
-    travel:"Travel",
-    medical:"Medical",
-    other_needs:"Other Needs",
-    clothes:"Clothes",
-    grooming:"Grooming",
-    other_ls:"Other Life Style"
+    travel: "Travel",
+    medical: "Medical",
+    other_needs: "Other Needs",
+    clothes: "Clothes",
+    grooming: "Grooming",
+    other_ls: "Other Life Style"
 
 
 };
@@ -708,7 +708,7 @@ function updateUIResults() {
     if (!appState.allocations || appState.income <= 0) return;
     normalizeAllocationsState();
 
-    
+
     const ef = appState.allocations.ef || 0;
     const inVal = appState.allocations.in || 0;
     const learn = appState.allocations.learn || 0;
@@ -1051,7 +1051,15 @@ function showToast(message, type = "info") {
     }, 3000);
 }
 
-// --- PDF Currency & Clean Formatter ---
+// Helper to sanitize any note text for PDF (removes ₹/special chars that turn into superscript ¹)
+function sanitizeTextForPdf(text) {
+    if (!text) return "";
+    return String(text)
+        .replace(/₹\s?/g, "Rs. ")
+        .replace(/[\u00B9\u00B2\u00B3\u2070-\u2079]/g, "") // remove any stray superscript characters
+        .replace(/[^\x20-\x7E\s]/g, ""); // strip non-ASCII glyphs unsupported by standard PDF fonts
+}
+
 function formatPdfCurrency(amount) {
     const val = Number(amount) || 0;
     const formatted = val.toLocaleString("en-IN", {
@@ -1263,36 +1271,36 @@ function generatePdfReport() {
         const tableBody = [
             // Needs
             [{ content: "Needs (Total)", styles: { fontStyle: "bold", fillColor: [239, 246, 255], textColor: [30, 64, 175] } },
-             { content: "Main Category", styles: { fontStyle: "bold", fillColor: [239, 246, 255] } },
-             { content: formatPdfCurrency(needs), styles: { fontStyle: "bold", fillColor: [239, 246, 255], textColor: [30, 64, 175] } },
-             { content: `${((needs / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [239, 246, 255] } }],
+            { content: "Main Category", styles: { fontStyle: "bold", fillColor: [239, 246, 255] } },
+            { content: formatPdfCurrency(needs), styles: { fontStyle: "bold", fillColor: [239, 246, 255], textColor: [30, 64, 175] } },
+            { content: `${((needs / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [239, 246, 255] } }],
             ["   • Travel", "Needs Sub-Tab", formatPdfCurrency(appState.allocations.travel || 0), `${(((appState.allocations.travel || 0) / income) * 100).toFixed(1)}%`],
             ["   • Medical", "Needs Sub-Tab", formatPdfCurrency(appState.allocations.medical || 0), `${(((appState.allocations.medical || 0) / income) * 100).toFixed(1)}%`],
             ["   • Other Needs", "Needs Sub-Tab", formatPdfCurrency(appState.allocations.other_needs || 0), `${(((appState.allocations.other_needs || 0) / income) * 100).toFixed(1)}%`],
 
             // Growth
             [{ content: "Growth (Total)", styles: { fontStyle: "bold", fillColor: [236, 253, 245], textColor: [6, 95, 70] } },
-             { content: "Main Category", styles: { fontStyle: "bold", fillColor: [236, 253, 245] } },
-             { content: formatPdfCurrency(growth), styles: { fontStyle: "bold", fillColor: [236, 253, 245], textColor: [6, 95, 70] } },
-             { content: `${((growth / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [236, 253, 245] } }],
+            { content: "Main Category", styles: { fontStyle: "bold", fillColor: [236, 253, 245] } },
+            { content: formatPdfCurrency(growth), styles: { fontStyle: "bold", fillColor: [236, 253, 245], textColor: [6, 95, 70] } },
+            { content: `${((growth / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [236, 253, 245] } }],
             ["   • Emergency Fund", "Growth Sub-Tab", formatPdfCurrency(appState.allocations.ef || 0), `${(((appState.allocations.ef || 0) / income) * 100).toFixed(1)}%`],
             ["   • Investments", "Growth Sub-Tab", formatPdfCurrency(appState.allocations.in || 0), `${(((appState.allocations.in || 0) / income) * 100).toFixed(1)}%`],
             ["   • Learning & Skills", "Growth Sub-Tab", formatPdfCurrency(appState.allocations.learn || 0), `${(((appState.allocations.learn || 0) / income) * 100).toFixed(1)}%`],
 
             // Lifestyle
             [{ content: "Lifestyle (Total)", styles: { fontStyle: "bold", fillColor: [254, 243, 199], textColor: [146, 64, 14] } },
-             { content: "Main Category", styles: { fontStyle: "bold", fillColor: [254, 243, 199] } },
-             { content: formatPdfCurrency(lifestyle), styles: { fontStyle: "bold", fillColor: [254, 243, 199], textColor: [146, 64, 14] } },
-             { content: `${((lifestyle / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [254, 243, 199] } }],
+            { content: "Main Category", styles: { fontStyle: "bold", fillColor: [254, 243, 199] } },
+            { content: formatPdfCurrency(lifestyle), styles: { fontStyle: "bold", fillColor: [254, 243, 199], textColor: [146, 64, 14] } },
+            { content: `${((lifestyle / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [254, 243, 199] } }],
             ["   • Clothes", "Lifestyle Sub-Tab", formatPdfCurrency(appState.allocations.clothes || 0), `${(((appState.allocations.clothes || 0) / income) * 100).toFixed(1)}%`],
             ["   • Grooming", "Lifestyle Sub-Tab", formatPdfCurrency(appState.allocations.grooming || 0), `${(((appState.allocations.grooming || 0) / income) * 100).toFixed(1)}%`],
             ["   • Other Lifestyle", "Lifestyle Sub-Tab", formatPdfCurrency(appState.allocations.other_ls || 0), `${(((appState.allocations.other_ls || 0) / income) * 100).toFixed(1)}%`],
 
             // Protection
             [{ content: "Protection (Total)", styles: { fontStyle: "bold", fillColor: [253, 242, 248], textColor: [157, 23, 77] } },
-             { content: "Main Category", styles: { fontStyle: "bold", fillColor: [253, 242, 248] } },
-             { content: formatPdfCurrency(protection), styles: { fontStyle: "bold", fillColor: [253, 242, 248], textColor: [157, 23, 77] } },
-             { content: `${((protection / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [253, 242, 248] } }],
+            { content: "Main Category", styles: { fontStyle: "bold", fillColor: [253, 242, 248] } },
+            { content: formatPdfCurrency(protection), styles: { fontStyle: "bold", fillColor: [253, 242, 248], textColor: [157, 23, 77] } },
+            { content: `${((protection / income) * 100).toFixed(1)}%`, styles: { fontStyle: "bold", fillColor: [253, 242, 248] } }],
             ["   • Insurance", "Protection Sub-Tab", formatPdfCurrency(appState.allocations.ins || 0), `${(((appState.allocations.ins || 0) / income) * 100).toFixed(1)}%`],
             ["   • Debt Repayment", "Protection Sub-Tab", formatPdfCurrency(appState.allocations.debt || 0), `${(((appState.allocations.debt || 0) / income) * 100).toFixed(1)}%`]
         ];
@@ -1334,19 +1342,20 @@ function generatePdfReport() {
             doc.text("Recent Activity & Transfer Notes", 40, lastY);
 
             const logRows = appState.transferLogs.slice(0, 8).map(entry => {
+                const noteVal = sanitizeTextForPdf(entry.note || (entry.type === "manual" ? "Manual allocation" : "Fund re-allocation"));
                 if (entry.type === "manual") {
                     return [
                         entry.date,
                         `Set ${entry.targetName}`,
                         formatPdfCurrency(entry.amount),
-                        entry.note || "Manual allocation"
+                        noteVal
                     ];
                 }
                 return [
                     entry.date,
                     `${entry.fromName} -> ${entry.toName}`,
                     formatPdfCurrency(entry.amount),
-                    entry.note || "Fund re-allocation"
+                    noteVal
                 ];
             });
 
@@ -1383,14 +1392,51 @@ function generatePdfReport() {
             );
         }
 
-        const fileName = `Finance_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
-        doc.save(fileName);
-        showToast("PDF Financial Report downloaded successfully!", "success");
+        const fileName = `NK_Finance_Report_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+        // Mobile-friendly save & open logic
+        const pdfBlob = doc.output("blob");
+
+        // Check if Web Share API can share the PDF directly (preferred on modern iOS & Android)
+        const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
+        if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+            navigator.share({
+                files: [pdfFile],
+                title: "NK Finance Planner Report",
+                text: "Here is your budget allocation and liquid cash report."
+            }).then(() => {
+                showToast("PDF shared / opened successfully!", "success");
+            }).catch(shareErr => {
+                // If user cancelled or dismissed share dialog, fallback to download
+                if (shareErr.name !== "AbortError") {
+                    downloadPdfBlob(pdfBlob, fileName);
+                }
+            });
+        } else {
+            downloadPdfBlob(pdfBlob, fileName);
+        }
 
     } catch (err) {
         console.error("PDF generation error:", err);
         showToast("Error generating PDF: " + err.message, "danger");
     }
+}
+
+// Robust fallback for mobile and desktop downloads
+function downloadPdfBlob(blob, fileName) {
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = fileName;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+    }, 2000);
+    showToast("PDF Financial Report downloaded! Check Downloads or tap to open.", "success");
 }
 
 
